@@ -52,7 +52,7 @@ export function FloorPlan2D() {
   }
 
   const onWheel = (e: WheelEvent) => {
-    e.preventDefault()
+    if (e.cancelable) e.preventDefault()
     const factor = e.deltaY > 0 ? 1.1 : 0.9
     const p = toWorld(e.clientX, e.clientY)
     const nw = view.w * factor

@@ -28,10 +28,12 @@ body,
 #root {
   margin: 0;
   height: 100%;
+  height: 100dvh;
   background: var(--bg);
   color: var(--text);
   font-family: 'Instrument Sans', system-ui, sans-serif;
   letter-spacing: 0.01em;
+  overflow: hidden;
 }
 
 button,
@@ -65,9 +67,11 @@ button.danger:hover {
 
 .app {
   height: 100%;
+  height: 100dvh;
   display: grid;
   grid-template-rows: var(--header-h) 1fr var(--toolbar-h);
-  min-width: 1100px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .header {
@@ -395,6 +399,10 @@ button.danger:hover {
   background: #7f96a3;
 }
 
+.viewport3d canvas {
+  display: block;
+}
+
 .inspector section {
   padding-bottom: 16px;
   margin-bottom: 16px;
@@ -621,3 +629,85 @@ input[type='range'] {
     --ins-w: 260px;
   }
 }
+
+.boot-3d,
+.webgl-fallback {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+  background: #8aa3b0;
+  color: #1c2428;
+  font-size: 14px;
+}
+
+.app.mobile {
+  --header-h: 48px;
+  --toolbar-h: 52px;
+  grid-template-rows: var(--header-h) 44px 1fr var(--toolbar-h);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.app.mobile .header {
+  grid-template-columns: 1fr auto;
+  padding: 0 10px 0 max(10px, env(safe-area-inset-left));
+}
+
+.app.mobile .header-actions button {
+  min-height: 36px;
+}
+
+.mobile-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  background: #101112;
+}
+
+.mobile-tabs button {
+  min-height: 32px;
+  font-size: 13px;
+}
+
+.app.mobile .workspace {
+  grid-template-columns: 1fr;
+  min-height: 0;
+}
+
+.app.mobile .views {
+  grid-template-columns: 1fr;
+  min-height: 0;
+}
+
+.app.mobile .panel,
+.app.mobile .viewport2d,
+.app.mobile .viewport3d {
+  min-height: 0;
+  height: 100%;
+}
+
+.app.mobile .inspector {
+  border-left: 0;
+}
+
+.app.mobile .toolbar {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  overflow-x: auto;
+}
+
+.app.mobile .toolbar button {
+  min-height: 36px;
+  font-size: 13px;
+}
+
+.app.mobile .catalog,
+.app.mobile .inspector {
+  -webkit-overflow-scrolling: touch;
+}
+

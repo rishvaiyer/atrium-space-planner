@@ -4,44 +4,60 @@ import { ContactShadows, OrbitControls, TransformControls } from '@react-three/d
 import type { Group } from 'three'
 import { catalogItem } from '../catalog'
 import { FurnitureMesh, RoomMesh } from '../scene/Furniture'
+import { LowPower } from '../lowPower'
+import { useIsMobile } from '../media'
 import { usePlanner } from '../store'
 import type { PlacedItem } from '../types'
+import { GLBoundary } from './GLBoundary'
 
 export function Viewport3D() {
   const time = usePlanner((s) => s.timeOfDay)
   const sun = useMemo(() => sunFromTime(time), [time])
+  const mobile = useIsMobile()
 
   return (
     <div className="viewport3d">
       <div className="view-label">3D · perspective</div>
-      <Canvas
-        shadows
-        camera={{ position: [14.5, 8.2, 13.5], fov: 38, near: 0.1, far: 80 }}
-        gl={{ antialias: true }}
-        onPointerMissed={() => usePlanner.getState().select(null)}
-      >
-        <color attach="background" args={['#8aa3b0']} />
-        <fog attach="fog" args={['#8aa3b0', 18, 42]} />
-        <hemisphereLight args={['#f2f0ea', '#6b5c4c', sun.hemi]} />
-        <ambientLight intensity={sun.ambient} />
-        <directionalLight
-          position={sun.position}
-          intensity={sun.intensity}
-          color={sun.color}
-          castShadow
-          shadow-mapSize-width={2048}
-          shadow-mapSize-height={2048}
-          shadow-camera-near={1}
-          shadow-camera-far={40}
-          shadow-camera-left={-12}
-          shadow-camera-right={12}
-          shadow-camera-top={12}
-          shadow-camera-bottom={-12}
-        />
-        <Scene />
-        <ContactShadows position={[5.6, 0.01, 4.2]} opacity={0.35} scale={22} blur={2.2} far={8} />
-        <Controls />
-      </Canvas>
+      <GLBoundary>
+        <Canvas
+          shadows={!mobile}
+          dpr={mobile ? [1, 1.25] : [1, 1.75]}
+          camera={{ position: [12.5, 7.4, 12], fov: mobile ? 46 : 38, near: 0.1, far: 80 }}
+          gl={{
+            antialias: !mobile,
+            alpha: false,
+            powerPreference: mobile ? 'low-power' : 'high-performance',
+            failIfMajorPerformanceCaveat: false,
+          }}
+          onPointerMissed={() => usePlanner.getState().select(null)}
+        >
+          <LowPower.Provider value={mobile}>
+            <color attach="background" args={['#8aa3b0']} />
+            <fog attach="fog" args={['#8aa3b0', 18, 42]} />
+            <hemisphereLight args={['#f2f0ea', '#6b5c4c', sun.hemi]} />
+            <ambientLight intensity={mobile ? sun.ambient + 0.22 : sun.ambient} />
+            <directionalLight
+              position={sun.position}
+              intensity={mobile ? sun.intensity * 0.7 : sun.intensity}
+              color={sun.color}
+              castShadow={!mobile}
+              shadow-mapSize-width={mobile ? 512 : 1024}
+              shadow-mapSize-height={mobile ? 512 : 1024}
+              shadow-camera-near={1}
+              shadow-camera-far={40}
+              shadow-camera-left={-12}
+              shadow-camera-right={12}
+              shadow-camera-top={12}
+              shadow-camera-bottom={-12}
+            />
+            <Scene />
+            {!mobile && (
+              <ContactShadows position={[5.6, 0.01, 4.2]} opacity={0.35} scale={22} blur={2.2} far={8} />
+            )}
+            <Controls mobile={mobile} />
+          </LowPower.Provider>
+        </Canvas>
+      </GLBoundary>
     </div>
   )
 }
@@ -120,34 +136,34 @@ function PlacedMesh({ item }: { item: PlacedItem }) {
   )
 }
 
-function Controls() {
+function Controls({ mobile }: { mobile: boolean }) {
   const selectedIds = usePlanner((s) => s.selectedIds)
   const { scene } = useThree()
   const [object, setObject] = useState<Group | null>(null)
   const [orbitOn, setOrbitOn] = useState(true)
 
   useEffect(() => {
-    if (selectedIds.length !== 1) {
+    if (mobile || selectedIds.length !== 1) {
       setObject(null)
       return
     }
     const found = scene.getObjectByName(`item-${selectedIds[0]}`) as Group | undefined
     setObject(found ?? null)
-  }, [selectedIds, scene])
+  }, [selectedIds, scene, mobile])
 
   return (
     <>
       <OrbitControls
         makeDefault
         enabled={orbitOn}
-        enableDamping
+        enableDamping={!mobile}
         dampingFactor={0.08}
         maxPolarAngle={Math.PI / 2 - 0.06}
         minDistance={3}
         maxDistance={28}
         target={[5.6, 0.4, 4.2]}
       />
-      {object && (
+      {object && !mobile && (
         <TransformControls
           object={object}
           mode="translate"

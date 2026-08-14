@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
+import { catalogItem } from '../catalog'
+import { useLowPower } from '../lowPower'
 import { usePlanner } from '../store'
 import { floorTexture, marbleTexture, plasterTexture, woodTexture } from '../textures'
 import type { PlacedItem } from '../types'
-import { catalogItem } from '../catalog'
 
 const LEGS: [number, number][] = [
   [-1, -1],
@@ -235,6 +236,7 @@ function Bar({ w, d, h, machine }: { w: number; d: number; h: number; machine?: 
 }
 
 function Pendant() {
+  const lowPower = useLowPower()
   return (
     <group position={[0, 2.55, 0]}>
       <mesh>
@@ -243,9 +245,11 @@ function Pendant() {
       </mesh>
       <mesh position={[0, -0.42, 0]} castShadow>
         <cylinderGeometry args={[0.14, 0.18, 0.16, 24]} />
-        <meshStandardMaterial color="#f2ebe0" roughness={0.45} emissive="#f4e6c4" emissiveIntensity={0.25} />
+        <meshStandardMaterial color="#f2ebe0" roughness={0.45} emissive="#f4e6c4" emissiveIntensity={0.45} />
       </mesh>
-      <pointLight position={[0, -0.5, 0]} intensity={6} distance={5.5} color="#ffd8a8" decay={2} />
+      {!lowPower && (
+        <pointLight position={[0, -0.5, 0]} intensity={6} distance={5.5} color="#ffd8a8" decay={2} />
+      )}
     </group>
   )
 }
