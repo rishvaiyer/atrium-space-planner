@@ -16,6 +16,7 @@ type IconName =
   | 'wall'
   | 'door'
   | 'window'
+  | 'more'
 
 const d: Record<IconName, string> = {
   select: 'M5 4l6 16 2.2-6.2L19.5 12z',
@@ -35,6 +36,7 @@ const d: Record<IconName, string> = {
   wall: 'M4 8h16M4 16h16M4 8v8M20 8v8',
   door: 'M6 20V5h12v15M10 12.5h.01',
   window: 'M5 6h14v12H5zM12 6v12M5 12h14',
+  more: 'M6 12h.01M12 12h.01M18 12h.01',
 }
 
 export function Icon({ name }: { name: IconName }) {

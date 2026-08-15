@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { openBoard } from '../board'
 import { catalogItem } from '../catalog'
 import { analyzeLayout } from '../compliance'
@@ -82,47 +83,57 @@ export function Header({
         <button type="button" onClick={onTemplates}>
           New
         </button>
-        {!compact && (
-          <button type="button" onClick={onPalette}>
-            ⌘K
-          </button>
+        {compact ? (
+          <MoreMenu
+            items={[
+              { label: 'Open', run: onImport },
+              { label: 'Save', run: exportJson },
+              { label: 'Board', run: printBoard },
+              { label: 'Present', run: () => usePlanner.getState().setFlag('focusMode', !focusMode) },
+              { label: 'Redo', run: () => usePlanner.getState().redo() },
+            ]}
+          />
+        ) : (
+          <>
+            <button type="button" onClick={onPalette}>
+              ⌘K
+            </button>
+            <button type="button" onClick={onImport}>
+              Open
+            </button>
+            <button type="button" onClick={exportJson}>
+              Save
+            </button>
+            <button type="button" onClick={exportCsv}>
+              CSV
+            </button>
+            <button type="button" title="Printable plan, cost, and code" onClick={printBoard}>
+              Board
+            </button>
+            <span className="sep" />
+            <button
+              type="button"
+              className={showLibrary && !focusMode ? 'on' : ''}
+              onClick={() => usePlanner.getState().setFlag('showLibrary', !showLibrary)}
+            >
+              Library
+            </button>
+            <button
+              type="button"
+              className={showSpec && !focusMode ? 'on' : ''}
+              onClick={() => usePlanner.getState().setFlag('showSpec', !showSpec)}
+            >
+              Spec
+            </button>
+            <button
+              type="button"
+              className={focusMode ? 'on' : ''}
+              onClick={() => usePlanner.getState().setFlag('focusMode', !focusMode)}
+            >
+              Present
+            </button>
+          </>
         )}
-        <button type="button" onClick={onImport}>
-          Open
-        </button>
-        <button type="button" onClick={exportJson}>
-          Save
-        </button>
-        {!compact && (
-          <button type="button" onClick={exportCsv}>
-            CSV
-          </button>
-        )}
-        <button type="button" title="Printable plan, cost, and code" onClick={printBoard}>
-          Board
-        </button>
-        <span className="sep" />
-        <button
-          type="button"
-          className={showLibrary && !focusMode ? 'on' : ''}
-          onClick={() => usePlanner.getState().setFlag('showLibrary', !showLibrary)}
-        >
-          Library
-        </button>
-        <button
-          type="button"
-          className={showSpec && !focusMode ? 'on' : ''}
-          onClick={() => usePlanner.getState().setFlag('showSpec', !showSpec)}
-        >
-          Spec
-        </button>
-        <button
-          type="button"
-          className={focusMode ? 'on' : ''}
-          onClick={() => usePlanner.getState().setFlag('focusMode', !focusMode)}
-        >
-          Present
-        </button>
         <button type="button" className="icon-btn" title="Undo" aria-label="Undo" onClick={() => usePlanner.getState().undo()}>
           <Icon name="undo" />
         </button>
@@ -134,5 +145,50 @@ export function Header({
         <ThemeToggle />
       </div>
     </header>
+  )
+}
+
+function MoreMenu({ items }: { items: { label: string; run: () => void }[] }) {
+  const [open, setOpen] = useState(false)
+  const wrap = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: PointerEvent) => {
+      if (!wrap.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', onDoc)
+    return () => document.removeEventListener('pointerdown', onDoc)
+  }, [open])
+
+  return (
+    <div className="more-menu" ref={wrap}>
+      <button
+        type="button"
+        className={`icon-btn ${open ? 'on' : ''}`}
+        aria-label="More"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <Icon name="more" />
+      </button>
+      {open && (
+        <ul>
+          {items.map((item) => (
+            <li key={item.label}>
+              <button
+                type="button"
+                onClick={() => {
+                  item.run()
+                  setOpen(false)
+                }}
+              >
+                {item.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }

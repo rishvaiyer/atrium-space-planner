@@ -213,8 +213,8 @@ export default function App() {
   const want3d = !mobile || tab === 'view3d'
   const show3d = allow3d && want3d
   const showViews = !mobile || tab === 'plan' || tab === 'view3d'
-  const library = !focusMode && showLibrary && (!mobile || tab === 'catalog')
-  const spec = !focusMode && showSpec && (!mobile || tab === 'inspect')
+  const library = !focusMode && (mobile ? tab === 'catalog' : showLibrary)
+  const spec = !focusMode && (mobile ? tab === 'inspect' : showSpec)
 
   return (
     <div className={`app ${mobile ? 'mobile' : ''} ${focusMode ? 'present' : ''}`}>
@@ -239,6 +239,28 @@ export default function App() {
           e.target.value = ''
         }}
       />
+      <div className={`workspace ${library ? 'has-lib' : ''} ${spec ? 'has-spec' : ''}`}>
+        {library && <CatalogPanel onPick={() => mobile && setTab('plan')} />}
+        {showViews && (
+          <div className="views">
+            {showPlan && <FloorPlan2D />}
+            {want3d &&
+              (show3d ? (
+                <GLBoundary>
+                  <Suspense fallback={<div className="viewport3d boot-3d">Loading 3D…</div>}>
+                    <Viewport3D />
+                  </Suspense>
+                </GLBoundary>
+              ) : (
+                <div className="viewport3d boot-3d">Loading 3D…</div>
+              ))}
+            <OverlayTools compact={mobile} />
+            {(!mobile || tab === 'plan') && !focusMode && <CanvasDock />}
+            {(!mobile || tab === 'view3d') && <ViewCameras />}
+          </div>
+        )}
+        {spec && <InspectorPanel />}
+      </div>
       {mobile && !focusMode && (
         <nav className="mobile-tabs">
           <button type="button" className={tab === 'plan' ? 'on' : ''} onClick={() => setTab('plan')}>
@@ -255,28 +277,6 @@ export default function App() {
           </button>
         </nav>
       )}
-      <div className={`workspace ${library ? 'has-lib' : ''} ${spec ? 'has-spec' : ''}`}>
-        {library && <CatalogPanel />}
-        {showViews && (
-          <div className="views">
-            {showPlan && <FloorPlan2D />}
-            {want3d &&
-              (show3d ? (
-                <GLBoundary>
-                  <Suspense fallback={<div className="viewport3d boot-3d">Loading 3D…</div>}>
-                    <Viewport3D />
-                  </Suspense>
-                </GLBoundary>
-              ) : (
-                <div className="viewport3d boot-3d">Loading 3D…</div>
-              ))}
-            <OverlayTools compact={mobile} />
-            {!mobile && !focusMode && <CanvasDock />}
-            <ViewCameras />
-          </div>
-        )}
-        {spec && <InspectorPanel />}
-      </div>
       {palette && <CommandPalette onClose={() => setPalette(false)} onOpenTemplates={() => setTemplates(true)} />}
       {templates && <TemplateGallery onClose={() => setTemplates(false)} />}
     </div>

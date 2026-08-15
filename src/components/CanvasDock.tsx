@@ -50,6 +50,9 @@ export function CanvasDock() {
         <Icon name="snap" />
         Snap {Math.round(snap * 1000)} mm
       </button>
+      <button type="button" onClick={() => usePlanner.getState().fitView()}>
+        Fit
+      </button>
       <div className="dock-layers">
         {LAYERS.map(([k, label]) => (
           <button

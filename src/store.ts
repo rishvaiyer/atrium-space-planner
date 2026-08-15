@@ -564,7 +564,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
     })),
   placeOpening: (kind, x, z) => {
     const { room, commitHistory } = get()
-    const hit = nearestWall(room.walls, x, z, 0.55)
+    const hit = nearestWall(room.walls, x, z, 0.75)
     if (!hit) return
     const width = kind === 'door' ? 0.9 : 1.6
     const len = wallLen(hit.wall)

@@ -2,8 +2,12 @@ import { useEffect, useState } from 'react'
 
 const QUERY = '(max-width: 900px)'
 
+function matches(query: string) {
+  return typeof window !== 'undefined' && window.matchMedia(query).matches
+}
+
 export function useIsMobile(): boolean {
-  const [mobile, setMobile] = useState(false)
+  const [mobile, setMobile] = useState(() => matches(QUERY))
 
   useEffect(() => {
     const mq = window.matchMedia(QUERY)
@@ -18,4 +22,8 @@ export function useIsMobile(): boolean {
   }, [])
 
   return mobile
+}
+
+export function isCoarsePointer() {
+  return matches('(pointer: coarse)')
 }

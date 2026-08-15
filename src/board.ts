@@ -62,7 +62,7 @@ export function openBoard(options: {
     .map((c) => `<li class="${c.ok ? 'ok' : 'bad'}"><strong>${escapeHtml(c.label)}</strong> ${escapeHtml(c.detail)}</li>`)
     .join('')
   const html = `<!doctype html>
-<html><head><meta charset="utf-8" /><title>${escapeHtml(name)} — ATRIUM</title>
+<html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>${escapeHtml(name)} — ATRIUM</title>
 <style>
   body { font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #111; margin: 32px; }
   h1 { font-size: 22px; margin: 0 0 4px; }
@@ -74,6 +74,11 @@ export function openBoard(options: {
   .hero { font-size: 28px; margin: 8px 0; }
   .ok { color: #15803d; } .bad { color: #b91c1c; }
   ul { padding-left: 16px; }
+  @media (max-width: 720px) {
+    body { margin: 16px; }
+    .grid { grid-template-columns: 1fr; }
+    button { min-height: 44px; padding: 10px 14px; }
+  }
   @media print { button { display: none; } body { margin: 16px; } }
 </style></head>
 <body>

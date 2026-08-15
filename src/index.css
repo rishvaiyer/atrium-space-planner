@@ -50,10 +50,15 @@ html, body, #root {
   margin: 0;
   min-height: 100%;
   min-height: 100dvh;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
   background: var(--bg);
   color: var(--text);
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button, input {
@@ -67,6 +72,7 @@ button {
   border-radius: 8px;
   padding: 6px 10px;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 button:hover { background: var(--hover); }
@@ -150,6 +156,28 @@ button.danger:hover { color: var(--bad); border-color: var(--bad); }
 }
 
 .header-actions > button { font-size: 12px; }
+
+.more-menu { position: relative; }
+.more-menu ul {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 160px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+.more-menu li button {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  min-height: 44px;
+}
 
 .sep {
   width: 1px;
@@ -271,6 +299,7 @@ button.danger:hover { color: var(--bad); border-color: var(--bad); }
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  touch-action: none;
 }
 
 .viewport2d {
@@ -586,27 +615,83 @@ input[type='range'] { width: 100%; accent-color: var(--accent); }
   font-size: 14px;
 }
 
-.app.mobile { grid-template-rows: var(--header-h) 40px minmax(0, 1fr); }
+.app.mobile {
+  grid-template-rows: var(--header-h) minmax(0, 1fr) auto;
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
 .app.mobile.present { grid-template-rows: var(--header-h) minmax(0, 1fr); }
 .app.mobile .header { padding: 0 8px; }
+.app.mobile .proj-input { max-width: 110px; }
 .app.mobile .meta-line { display: none; }
 .app.mobile .workspace, .app.mobile .workspace.has-lib, .app.mobile .workspace.has-spec,
 .app.mobile .workspace.has-lib.has-spec { grid-template-columns: 1fr; }
 .app.mobile .views { grid-template-columns: 1fr; }
 .app.mobile .panel, .app.mobile .viewport2d, .app.mobile .viewport3d { min-height: 0; height: 100%; }
+.app.mobile .viewport2d { border-right: 0; }
 .app.mobile .inspector { border-left: 0; }
-.app.mobile .overlay-tools { flex-direction: row; top: auto; bottom: 12px; left: 12px; }
-.app.mobile .cam-switch { top: auto; bottom: 12px; right: 12px; }
+.app.mobile .panel { padding-bottom: 24px; }
+.app.mobile .view-label { display: none; }
+.app.mobile .overlay-tools {
+  flex-direction: row;
+  top: auto;
+  left: 8px;
+  right: 8px;
+  bottom: 10px;
+  max-width: none;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  justify-content: flex-start;
+}
+.app.mobile .overlay-tools button {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+}
+.app.mobile .overlay-tools .sep {
+  width: 1px;
+  height: 28px;
+  margin: auto 4px;
+}
+.app.mobile .canvas-dock {
+  top: 8px;
+  bottom: auto;
+  left: 8px;
+  right: 8px;
+  transform: none;
+  max-width: none;
+  overflow-x: auto;
+}
+.app.mobile .dock-layers { max-width: none; }
+.app.mobile .cam-switch {
+  top: auto;
+  bottom: 62px;
+  right: 8px;
+}
+.app.mobile .cam-switch button { min-height: 36px; padding: 8px 10px; }
+.app.mobile input:not([type='range']), .app.mobile .field input, .app.mobile .space-list input {
+  font-size: 16px;
+}
+.app.mobile .catalog-row { min-height: 52px; }
+.app.mobile .modal-scrim { padding: 12px; align-items: stretch; }
+.app.mobile .gallery, .app.mobile .palette {
+  width: 100%;
+  max-height: 100%;
+  overflow: auto;
+  border-radius: 16px;
+}
 
 .mobile-tabs {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
   background: var(--panel);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 .mobile-tabs button {
-  min-height: 40px;
-  font-size: 12px;
+  min-height: 48px;
+  font-size: 13px;
   border: 0;
   border-radius: 0;
   border-right: 1px solid var(--line);

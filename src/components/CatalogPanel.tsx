@@ -11,7 +11,7 @@ const CATS: { id: Category; label: string }[] = [
   { id: 'education', label: 'School' },
 ]
 
-export function CatalogPanel() {
+export function CatalogPanel({ onPick }: { onPick?: () => void }) {
   const category = usePlanner((s) => s.category)
   const pending = usePlanner((s) => s.pendingCatalogId)
   const setCategory = usePlanner((s) => s.setCategory)
@@ -34,14 +34,18 @@ export function CatalogPanel() {
           </button>
         ))}
       </div>
-      <p className="hint">{pending ? 'Click the plan or the floor to drop it' : 'Pick a piece, then click to place'}</p>
+      <p className="hint">{pending ? 'Tap the plan to drop it' : 'Pick a piece, then tap the plan to place'}</p>
       <ul className="catalog-list">
         {items.map((item) => (
           <li key={item.id}>
             <button
               type="button"
               className={`catalog-row ${pending === item.id ? 'on' : ''}`}
-              onClick={() => setPending(pending === item.id ? null : item.id)}
+              onClick={() => {
+                const next = pending === item.id ? null : item.id
+                setPending(next)
+                if (next) onPick?.()
+              }}
             >
               <span className={`glyph ${item.plan}`} />
               <span className="meta">

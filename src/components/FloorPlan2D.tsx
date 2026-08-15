@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import { catalogItem } from '../catalog'
 import { analyzeLayout } from '../compliance'
 import { formatMm, itemAabb } from '../geometry'
+import { isCoarsePointer } from '../media'
 import { pointInPoly, polygonArea, polygonCentroid } from '../spaces'
 import { usePlanner } from '../store'
 import type { PlacedItem, Room, WallSeg } from '../types'
@@ -56,6 +57,10 @@ export function FloorPlan2D() {
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState({ x: -1.4, y: -1.5, w: room.width + 2.8, h: room.depth + 3 })
+  const viewRef = useRef(view)
+  viewRef.current = view
+  const pointers = useRef(new Map<number, { x: number; y: number }>())
+  const pinch = useRef<{ dist: number; mx: number; my: number; view: typeof view } | null>(null)
 
   useEffect(() => {
     setView({
@@ -74,122 +79,183 @@ export function FloorPlan2D() {
     moved: boolean
   } | null>(null)
 
-  const toWorld = (clientX: number, clientY: number) => {
+  const toWorld = (clientX: number, clientY: number, v = viewRef.current) => {
     const el = wrapRef.current
     if (!el) return { x: 0, z: 0 }
     const r = el.getBoundingClientRect()
     const sx = (clientX - r.left) / r.width
     const sy = (clientY - r.top) / r.height
-    return { x: view.x + sx * view.w, z: view.y + sy * view.h }
+    return { x: v.x + sx * v.w, z: v.y + sy * v.h }
+  }
+
+  const zoomAt = (clientX: number, clientY: number, factor: number, v = viewRef.current) => {
+    const p = toWorld(clientX, clientY, v)
+    const nw = Math.min(80, Math.max(2.4, v.w * factor))
+    const nh = nw * (v.h / v.w)
+    const sx = (p.x - v.x) / v.w
+    const sy = (p.z - v.y) / v.h
+    return { x: p.x - sx * nw, y: p.z - sy * nh, w: nw, h: nh }
   }
 
   const onWheel = (e: WheelEvent) => {
     if (e.cancelable) e.preventDefault()
-    const factor = e.deltaY > 0 ? 1.1 : 0.9
-    const p = toWorld(e.clientX, e.clientY)
-    const nw = view.w * factor
-    const nh = view.h * factor
-    const sx = (p.x - view.x) / view.w
-    const sy = (p.z - view.y) / view.h
-    setView({ x: p.x - sx * nw, y: p.z - sy * nh, w: nw, h: nh })
+    const next = zoomAt(e.clientX, e.clientY, e.deltaY > 0 ? 1.1 : 0.9)
+    viewRef.current = next
+    setView(next)
   }
 
-  const onPointerDown = (e: ReactPointerEvent) => {
-    const p = toWorld(e.clientX, e.clientY)
-    const state = usePlanner.getState()
-
-    if (e.button === 1 || e.altKey || e.button === 2 || tool === 'pan') {
-      drag.current = { mode: 'pan', ids: [], lastX: e.clientX, lastZ: e.clientY, moved: false }
-      e.currentTarget.setPointerCapture(e.pointerId)
-      return
+  const beginPinch = () => {
+    const pts = [...pointers.current.values()]
+    if (pts.length < 2) return
+    drag.current = null
+    const mx = (pts[0].x + pts[1].x) / 2
+    const my = (pts[0].y + pts[1].y) / 2
+    pinch.current = {
+      dist: Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1,
+      mx,
+      my,
+      view: { ...viewRef.current },
     }
+  }
 
-    if (tool === 'measure') {
-      const s = snapOn ? snap : 0
+  const gesture = useRef({ pinched: false, tap: null as null | { x: number; z: number; shift: boolean } })
+
+  const applyTap = (p: { x: number; z: number }, shift: boolean) => {
+    const state = usePlanner.getState()
+    const slop = isCoarsePointer() ? 0.16 : 0
+    const live = state.room
+    const liveItems = state.items
+    const liveNotes = state.notes
+
+    if (state.tool === 'measure') {
+      const s = state.snapOn ? state.snap : 0
       state.setMeasurePoint({
         x: s ? Math.round(p.x / s) * s : p.x,
         z: s ? Math.round(p.z / s) * s : p.z,
       })
       return
     }
-
-    if (tool === 'note') {
-      const hitNote = notes.find((n) => Math.hypot(n.x - p.x, n.z - p.z) < 0.22)
+    if (state.tool === 'note') {
+      const hitNote = liveNotes.find((n) => Math.hypot(n.x - p.x, n.z - p.z) < 0.22 + slop)
       if (hitNote) state.removeNote(hitNote.id)
       else state.addNote(p.x, p.z)
       return
     }
-
-    if (tool === 'paint') {
-      const hit = hitTest(items, p.x, p.z, showFurniture, showLighting)
+    if (state.tool === 'paint') {
+      const hit = hitTest(liveItems, p.x, p.z, showFurniture, showLighting, slop)
       if (hit) state.setFinish(hit.id, state.brandColor)
       return
     }
-
-    if (tool === 'stamp') {
+    if (state.tool === 'stamp') {
       if (state.selectedIds.length) state.stampAt(p.x, p.z)
       return
     }
-
-    if (tool === 'wall') {
-      const snap = snapOn ? state.snap : 0
-      const pt = snapDrawPoint(p.x, p.z, room.walls, snap, wallStart ?? undefined, e.shiftKey)
-      if (!wallStart) {
+    if (state.tool === 'wall') {
+      const grid = state.snapOn ? state.snap : 0
+      const start = state.wallStart
+      const pt = snapDrawPoint(p.x, p.z, live.walls, grid, start ?? undefined, shift)
+      if (!start) {
         state.setWallStart(pt)
         return
       }
-      state.addWall(wallStart.x, wallStart.z, pt.x, pt.z)
+      state.addWall(start.x, start.z, pt.x, pt.z)
       return
     }
-
-    if (tool === 'door') {
+    if (state.tool === 'door') {
       state.placeOpening('door', p.x, p.z)
       return
     }
-
-    if (tool === 'window') {
+    if (state.tool === 'window') {
       state.placeOpening('window', p.x, p.z)
       return
     }
+    if (state.pendingCatalogId) {
+      state.placeItem(state.pendingCatalogId, p.x, p.z)
+      return
+    }
+    const arch = hitArch(live, p.x, p.z, isCoarsePointer() ? 0.42 : 0.28)
+    if (arch) {
+      state.selectArch(arch)
+      return
+    }
+    const space = hitSpace(live, p.x, p.z)
+    if (space) {
+      state.selectArch({ kind: 'space', id: space.id })
+      return
+    }
+    state.select(null)
+  }
 
-    if (pending) {
-      state.placeItem(pending, p.x, p.z)
+  const onPointerDown = (e: ReactPointerEvent) => {
+    if (e.cancelable) e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pointers.current.size >= 2) {
+      gesture.current.pinched = true
+      gesture.current.tap = null
+      beginPinch()
       return
     }
 
-    const hit = hitTest(items, p.x, p.z, showFurniture, showLighting)
-    if (hit) {
-      state.select(hit.id, e.shiftKey)
-      const ids = e.shiftKey
-        ? usePlanner.getState().selectedIds
-        : [hit.id]
-      drag.current = {
-        mode: 'item',
-        ids,
-        originId: hit.id,
-        lastX: p.x,
-        lastZ: p.z,
-        moved: false,
-      }
-      e.currentTarget.setPointerCapture(e.pointerId)
-    } else {
-      const arch = hitArch(room, p.x, p.z)
-      if (arch) {
-        state.selectArch(arch)
-        return
-      }
-      const space = hitSpace(room, p.x, p.z)
-      if (space) {
-        state.selectArch({ kind: 'space', id: space.id })
-        return
-      }
-      state.select(null)
+    const p = toWorld(e.clientX, e.clientY)
+    const state = usePlanner.getState()
+    const slop = isCoarsePointer() ? 0.16 : 0
+    gesture.current.pinched = false
+    gesture.current.tap = null
+
+    if (e.button === 1 || e.altKey || e.button === 2 || tool === 'pan') {
       drag.current = { mode: 'pan', ids: [], lastX: e.clientX, lastZ: e.clientY, moved: false }
-      e.currentTarget.setPointerCapture(e.pointerId)
+      return
+    }
+
+    if (tool === 'select' && !pending) {
+      const hit = hitTest(items, p.x, p.z, showFurniture, showLighting, slop)
+      if (hit) {
+        state.select(hit.id, e.shiftKey)
+        const ids = e.shiftKey ? usePlanner.getState().selectedIds : [hit.id]
+        drag.current = {
+          mode: 'item',
+          ids,
+          originId: hit.id,
+          lastX: p.x,
+          lastZ: p.z,
+          moved: false,
+        }
+        return
+      }
+    }
+
+    if (isCoarsePointer()) {
+      gesture.current.tap = { x: p.x, z: p.z, shift: e.shiftKey }
+      drag.current = { mode: 'pan', ids: [], lastX: e.clientX, lastZ: e.clientY, moved: false }
+      return
+    }
+
+    applyTap(p, e.shiftKey)
+    if (tool === 'select' && !pending) {
+      drag.current = { mode: 'pan', ids: [], lastX: e.clientX, lastZ: e.clientY, moved: false }
     }
   }
 
   const onPointerMove = (e: ReactPointerEvent) => {
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pinch.current && pointers.current.size >= 2) {
+      const pts = [...pointers.current.values()]
+      const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1
+      const mx = (pts[0].x + pts[1].x) / 2
+      const my = (pts[0].y + pts[1].y) / 2
+      const factor = pinch.current.dist / dist
+      const zoomed = zoomAt(pinch.current.mx, pinch.current.my, factor, pinch.current.view)
+      const el = wrapRef.current
+      if (el) {
+        const r = el.getBoundingClientRect()
+        zoomed.x -= ((mx - pinch.current.mx) / r.width) * zoomed.w
+        zoomed.y -= ((my - pinch.current.my) / r.height) * zoomed.h
+      }
+      viewRef.current = zoomed
+      setView(zoomed)
+      return
+    }
     const p = toWorld(e.clientX, e.clientY)
     if (tool === 'wall') {
       const s = snapOn ? snap : 0
@@ -201,11 +267,15 @@ export function FloorPlan2D() {
       const el = wrapRef.current
       if (!el) return
       const r = el.getBoundingClientRect()
-      const dx = ((e.clientX - d.lastX) / r.width) * view.w
-      const dy = ((e.clientY - d.lastZ) / r.height) * view.h
+      const v = viewRef.current
+      const dx = ((e.clientX - d.lastX) / r.width) * v.w
+      const dy = ((e.clientY - d.lastZ) / r.height) * v.h
+      if (Math.hypot(e.clientX - d.lastX, e.clientY - d.lastZ) > 6) d.moved = true
       d.lastX = e.clientX
       d.lastZ = e.clientY
-      setView((v) => ({ ...v, x: v.x - dx, y: v.y - dy }))
+      const next = { ...v, x: v.x - dx, y: v.y - dy }
+      viewRef.current = next
+      setView(next)
       return
     }
     if (!d.moved) {
@@ -215,8 +285,17 @@ export function FloorPlan2D() {
     usePlanner.getState().moveItems(d.ids, p.x, p.z, d.originId)
   }
 
-  const onPointerUp = () => {
-    drag.current = null
+  const endPointer = (e: ReactPointerEvent) => {
+    pointers.current.delete(e.pointerId)
+    if (pointers.current.size < 2) pinch.current = null
+    if (pointers.current.size === 0) {
+      const g = gesture.current
+      const d = drag.current
+      if (!g.pinched && g.tap && d?.mode === 'pan' && !d.moved) applyTap(g.tap, g.tap.shift)
+      drag.current = null
+      g.tap = null
+      g.pinched = false
+    }
   }
 
   const pad = 0.35
@@ -228,7 +307,8 @@ export function FloorPlan2D() {
       onWheel={onWheel}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
+      onPointerUp={endPointer}
+      onPointerCancel={endPointer}
       onContextMenu={(e) => e.preventDefault()}
     >
       <div className="view-label">Plan</div>
@@ -437,6 +517,7 @@ function hitTest(
   z: number,
   furniture: boolean,
   lighting: boolean,
+  pad = 0,
 ): PlacedItem | undefined {
   for (let i = items.length - 1; i >= 0; i--) {
     const item = items[i]
@@ -444,7 +525,7 @@ function hitTest(
     if (!lighting && def.costGroup === 'lighting') continue
     if (!furniture && def.costGroup !== 'lighting') continue
     const box = itemAabb(item)
-    if (x >= box.minX && x <= box.maxX && z >= box.minZ && z <= box.maxZ) return item
+    if (x >= box.minX - pad && x <= box.maxX + pad && z >= box.minZ - pad && z <= box.maxZ + pad) return item
   }
   return undefined
 }
@@ -599,20 +680,20 @@ function hitSpace(room: Room, x: number, z: number) {
   return hits.slice().sort((a, b) => Math.abs(polygonArea(a.polygon)) - Math.abs(polygonArea(b.polygon)))[0]
 }
 
-function hitArch(room: ReturnType<typeof usePlanner.getState>['room'], x: number, z: number) {
+function hitArch(room: ReturnType<typeof usePlanner.getState>['room'], x: number, z: number, slop = 0.28) {
   for (const door of room.doors) {
     const wall = wallById(room, door.wallId)
     if (!wall) continue
     const c = pointOnWall(wall, door.offset + door.width / 2)
-    if (Math.hypot(c.x - x, c.z - z) < 0.28) return { kind: 'door' as const, id: door.id }
+    if (Math.hypot(c.x - x, c.z - z) < slop) return { kind: 'door' as const, id: door.id }
   }
   for (const win of room.windows) {
     const wall = wallById(room, win.wallId)
     if (!wall) continue
     const c = pointOnWall(wall, win.offset + win.width / 2)
-    if (Math.hypot(c.x - x, c.z - z) < 0.28) return { kind: 'window' as const, id: win.id }
+    if (Math.hypot(c.x - x, c.z - z) < slop) return { kind: 'window' as const, id: win.id }
   }
-  const hit = nearestWall(room.walls, x, z, Math.max(0.28, room.wallThickness * 1.4))
+  const hit = nearestWall(room.walls, x, z, Math.max(slop, room.wallThickness * 1.4))
   if (hit) return { kind: 'wall' as const, id: hit.wall.id }
   return null
 }
