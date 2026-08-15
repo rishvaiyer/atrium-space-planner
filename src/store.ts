@@ -20,6 +20,7 @@ import type { ProjectFile } from './project'
 import { templateById } from './templates'
 import {
   cloneRoom,
+  insertWall,
   migrateRoom,
   nearestWall,
   reshapeBox,
@@ -140,6 +141,7 @@ export interface PlannerState {
   addWall: (ax: number, az: number, bx: number, bz: number) => void
   setWallStart: (pt: { x: number; z: number } | null) => void
   placeOpening: (kind: 'door' | 'window', x: number, z: number) => void
+  renameSpace: (id: string, name: string) => void
   setMeasurePoint: (point: { x: number; z: number }) => void
   clearMeasure: () => void
   commitHistory: () => void
@@ -297,7 +299,11 @@ export const usePlanner = create<PlannerState>((set, get) => ({
         set({ room: { ...room, doors: room.doors.filter((d) => d.id !== selectedArch.id) }, selectedArch: null })
         return
       }
-      set({ room: { ...room, windows: room.windows.filter((w) => w.id !== selectedArch.id) }, selectedArch: null })
+      if (selectedArch.kind === 'window') {
+        set({ room: { ...room, windows: room.windows.filter((w) => w.id !== selectedArch.id) }, selectedArch: null })
+        return
+      }
+      set({ selectedArch: null })
       return
     }
     if (!selectedIds.length) return
@@ -541,14 +547,21 @@ export const usePlanner = create<PlannerState>((set, get) => ({
     if (Math.hypot(bx - ax, bz - az) < 0.35) return
     const { room, commitHistory } = get()
     commitHistory()
-    const wall = { id: uid(), ax, az, bx, bz }
+    const next = insertWall(room, ax, az, bx, bz)
     set({
-      room: withBounds({ ...room, walls: [...room.walls, wall] }),
+      room: next.room,
       wallStart: { x: bx, z: bz },
-      selectedArch: { kind: 'wall', id: wall.id },
+      selectedArch: { kind: 'wall', id: next.id },
       viewEpoch: get().viewEpoch + 1,
     })
   },
+  renameSpace: (id, name) =>
+    set((s) => ({
+      room: {
+        ...s.room,
+        spaces: s.room.spaces.map((sp) => (sp.id === id ? { ...sp, name } : sp)),
+      },
+    })),
   placeOpening: (kind, x, z) => {
     const { room, commitHistory } = get()
     const hit = nearestWall(room.walls, x, z, 0.55)

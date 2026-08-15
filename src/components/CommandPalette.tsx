@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { openBoard } from '../board'
+import { analyzeLayout } from '../compliance'
 import { TEMPLATES } from '../templates'
 import { usePlanner } from '../store'
 import { toggleTheme } from '../theme'
@@ -11,6 +13,29 @@ export function CommandPalette({ onClose, onOpenTemplates }: { onClose: () => vo
       { id: 'present', label: 'Presentation mode', run: () => usePlanner.getState().setFlag('focusMode', !usePlanner.getState().focusMode) },
       { id: 'library', label: 'Toggle library', run: () => usePlanner.getState().setFlag('showLibrary', !usePlanner.getState().showLibrary) },
       { id: 'spec', label: 'Toggle spec', run: () => usePlanner.getState().setFlag('showSpec', !usePlanner.getState().showSpec) },
+      {
+        id: 'board',
+        label: 'Open print board (PDF)',
+        run: () => {
+          const s = usePlanner.getState()
+          openBoard({
+            name: s.projectName,
+            occupancyGroup: s.occupancyGroup,
+            room: s.room,
+            items: s.items,
+            analysis: analyzeLayout({
+              room: s.room,
+              items: s.items,
+              tier: s.budgetTier,
+              floor: s.floorFinish,
+              cap: s.budgetCap,
+              jurisdiction: s.jurisdiction,
+              worldId: s.worldId,
+              occupancyGroup: s.occupancyGroup,
+            }),
+          })
+        },
+      },
       { id: 'wall', label: 'Wall tool', run: () => usePlanner.getState().setTool('wall') },
       { id: 'door', label: 'Door tool', run: () => usePlanner.getState().setTool('door') },
       { id: 'window', label: 'Window tool', run: () => usePlanner.getState().setTool('window') },

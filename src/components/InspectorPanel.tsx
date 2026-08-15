@@ -122,7 +122,34 @@ export function InspectorPanel() {
             />
           </div>
         </label>
-        <p className="hint">W draws a wall · D a door · G a window. Shift for an angled wall.</p>
+        <p className="hint">W draws a wall · D a door · G a window. Shift for an angled wall. Partition walls name rooms automatically.</p>
+      </section>
+
+      <section>
+        <div className="panel-kicker">Rooms</div>
+        {(room.spaces ?? []).length ? (
+          <ul className="space-list">
+            {(room.spaces ?? []).map((sp) => {
+              const report = analysis?.spaces.find((r) => r.id === sp.id)
+              const on = selectedArch?.kind === 'space' && selectedArch.id === sp.id
+              return (
+                <li key={sp.id} className={on ? 'on' : ''}>
+                  <input
+                    aria-label="Room name"
+                    value={sp.name}
+                    onFocus={() => usePlanner.getState().selectArch({ kind: 'space', id: sp.id })}
+                    onChange={(e) => usePlanner.getState().renameSpace(sp.id, e.target.value)}
+                  />
+                  <span>
+                    {report ? `${report.area.toFixed(1)} m² · ${report.seats} seats · load ${report.load}` : '—'}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        ) : (
+          <p className="empty">Closed wall loops become named rooms.</p>
+        )}
       </section>
 
       {selectedArch && (
@@ -162,6 +189,31 @@ export function InspectorPanel() {
               <p className="hint">1.6 m glazed opening. Delete removes it.</p>
             </>
           )}
+          {selectedArch.kind === 'space' &&
+            (() => {
+              const sp = room.spaces.find((s) => s.id === selectedArch.id)
+              const report = analysis?.spaces.find((r) => r.id === selectedArch.id)
+              if (!sp) return <p className="empty">Room missing.</p>
+              return (
+                <>
+                  <h3>{sp.name}</h3>
+                  <label className="field">
+                    Name
+                    <input value={sp.name} onChange={(e) => usePlanner.getState().renameSpace(sp.id, e.target.value)} />
+                  </label>
+                  {report && (
+                    <div className="kv">
+                      <span>Area</span>
+                      <b>{report.area.toFixed(1)} m²</b>
+                      <span>Seats</span>
+                      <b>{report.seats}</b>
+                      <span>Occupant load</span>
+                      <b>{report.load}</b>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
         </section>
       )}
 

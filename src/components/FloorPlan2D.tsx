@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import { catalogItem } from '../catalog'
 import { analyzeLayout } from '../compliance'
 import { formatMm, itemAabb } from '../geometry'
+import { pointInPoly, polygonArea, polygonCentroid } from '../spaces'
 import { usePlanner } from '../store'
-import type { PlacedItem, WallSeg } from '../types'
+import type { PlacedItem, Room, WallSeg } from '../types'
 import {
   nearestWall,
   pointOnWall,
@@ -177,6 +178,11 @@ export function FloorPlan2D() {
         state.selectArch(arch)
         return
       }
+      const space = hitSpace(room, p.x, p.z)
+      if (space) {
+        state.selectArch({ kind: 'space', id: space.id })
+        return
+      }
       state.select(null)
       drag.current = { mode: 'pan', ids: [], lastX: e.clientX, lastZ: e.clientY, moved: false }
       e.currentTarget.setPointerCapture(e.pointerId)
@@ -233,6 +239,22 @@ export function FloorPlan2D() {
           </pattern>
         </defs>
         <rect x={view.x} y={view.y} width={view.w} height={view.h} className="paper" />
+
+        {(room.spaces ?? []).map((sp) => {
+          const on = selectedArch?.kind === 'space' && selectedArch.id === sp.id
+          const c = polygonCentroid(sp.polygon)
+          return (
+            <g key={sp.id} className={`space-poly ${on ? 'on' : ''}`}>
+              <polygon
+                className="space-fill"
+                points={sp.polygon.map((pt) => `${pt.x},${pt.z}`).join(' ')}
+              />
+              <text className="space-label" x={c.x} y={c.z} textAnchor="middle" dy={0.08}>
+                {sp.name}
+              </text>
+            </g>
+          )
+        })}
 
         {showGrid && (
           <g className="grid">
@@ -569,6 +591,12 @@ function Dimension({
       </text>
     </g>
   )
+}
+
+function hitSpace(room: Room, x: number, z: number) {
+  const hits = (room.spaces ?? []).filter((sp) => pointInPoly(sp.polygon, x, z))
+  if (!hits.length) return null
+  return hits.slice().sort((a, b) => Math.abs(polygonArea(a.polygon)) - Math.abs(polygonArea(b.polygon)))[0]
 }
 
 function hitArch(room: ReturnType<typeof usePlanner.getState>['room'], x: number, z: number) {

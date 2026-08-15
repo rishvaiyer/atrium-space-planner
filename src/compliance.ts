@@ -1,5 +1,6 @@
 import { catalogItem } from './catalog'
 import { itemAabb } from './geometry'
+import { pointInPoly, polygonArea } from './spaces'
 import { doorCenter, wallLen, wallPieces, pointOnWall } from './walls'
 import type {
   BudgetTier,
@@ -220,6 +221,14 @@ function doorGoalCells(room: Room, grid: Grid): Set<number> {
   return goals
 }
 
+export interface SpaceReport {
+  id: string
+  name: string
+  area: number
+  seats: number
+  load: number
+}
+
 export interface Analysis {
   area: number
   seats: number
@@ -241,6 +250,7 @@ export interface Analysis {
   total: number
   cap: number
   budgetOk: boolean
+  spaces: SpaceReport[]
 }
 
 export function analyzeLayout(options: {
@@ -256,9 +266,22 @@ export function analyzeLayout(options: {
   const { room, items, tier, floor, cap, jurisdiction, worldId } = options
   const world = worldOf(worldId)
   const occupancyGroup = options.occupancyGroup ?? world.occupancyGroup
-  const area = room.width * room.depth
+  const spaceReports: SpaceReport[] = (room.spaces ?? []).map((sp) => {
+    const a = Math.abs(polygonArea(sp.polygon))
+    const seatsHere = items.reduce((n, it) => (pointInPoly(sp.polygon, it.x, it.z) ? n + catalogItem(it.catalogId).seats : n), 0)
+    return {
+      id: sp.id,
+      name: sp.name,
+      area: a,
+      seats: seatsHere,
+      load: Math.max(seatsHere, Math.max(1, Math.ceil(a / OCCUPANT_M2))),
+    }
+  })
+  const area =
+    spaceReports.length > 0 ? spaceReports.reduce((s, sp) => s + sp.area, 0) : room.width * room.depth
   const seats = items.reduce((sum, item) => sum + catalogItem(item.catalogId).seats, 0)
-  const occupantLoad = Math.max(1, Math.ceil(area / OCCUPANT_M2))
+  const occupantLoad =
+    spaceReports.length > 0 ? spaceReports.reduce((s, sp) => s + sp.load, 0) : Math.max(1, Math.ceil(area / OCCUPANT_M2))
   const travelLimitM = TRAVEL_LIMIT[jurisdiction] ?? 18
 
   const grid = buildGrid(room, items, 0)
@@ -435,7 +458,7 @@ export function analyzeLayout(options: {
     area,
     seats,
     occupantLoad: worldId === 'earth' ? occupantLoad : world.crewTarget,
-    seatsPerM2: seats / area,
+    seatsPerM2: area > 0 ? seats / area : 0,
     occupancyGroup,
     worldId,
     gravityG: world.gravityG,
@@ -452,5 +475,6 @@ export function analyzeLayout(options: {
     total,
     cap,
     budgetOk,
+    spaces: spaceReports,
   }
 }

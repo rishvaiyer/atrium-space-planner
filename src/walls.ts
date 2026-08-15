@@ -1,4 +1,5 @@
 import { clamp, snapTo, uid } from './geometry'
+import { mergeSpaces } from './spaces'
 import type { Door, Room, WallSeg, WindowSpec } from './types'
 
 export function wallLen(wall: WallSeg): number {
@@ -115,6 +116,7 @@ export function boxRoom(
     walls: boxWalls(width, depth),
     doors,
     windows,
+    spaces: mergeSpaces(undefined, boxWalls(width, depth)),
   }
 }
 
@@ -140,7 +142,7 @@ export function boundsFromWalls(walls: WallSeg[]): { originX: number; originZ: n
 
 export function withBounds(room: Room): Room {
   const b = boundsFromWalls(room.walls)
-  return { ...room, ...b }
+  return { ...room, ...b, spaces: mergeSpaces(room.spaces, room.walls) }
 }
 
 export function wallById(room: Room, id: string): WallSeg | undefined {
@@ -203,6 +205,7 @@ export function cloneRoom(room: Room): Room {
     walls: room.walls.map((w) => ({ ...w })),
     doors: room.doors.map((d) => ({ ...d })),
     windows: room.windows.map((w) => ({ ...w })),
+    spaces: (room.spaces ?? []).map((s) => ({ ...s, polygon: s.polygon.map((p) => ({ ...p })), wallIds: [...s.wallIds] })),
   }
 }
 
@@ -224,12 +227,13 @@ export function reshapeBox(room: Room, width: number, depth: number): Room {
 
 type LegacyDoor = Door & { wall?: string }
 type LegacyWindow = WindowSpec & { wall?: string }
-type LegacyRoom = Omit<Room, 'walls' | 'doors' | 'windows' | 'originX' | 'originZ'> & {
+type LegacyRoom = Omit<Room, 'walls' | 'doors' | 'windows' | 'originX' | 'originZ' | 'spaces'> & {
   walls?: WallSeg[]
   doors: LegacyDoor[]
   windows: LegacyWindow[]
   originX?: number
   originZ?: number
+  spaces?: Room['spaces']
 }
 
 export function migrateRoom(raw: LegacyRoom): Room {
@@ -259,5 +263,48 @@ export function migrateRoom(raw: LegacyRoom): Room {
     walls,
     doors,
     windows,
+    spaces: mergeSpaces(raw.spaces, walls),
   })
+}
+
+function remapOpening<T extends { wallId: string; offset: number; width: number }>(
+  op: T,
+  oldId: string,
+  cut: number,
+  newId: string,
+): T {
+  if (op.wallId !== oldId) return op
+  if (op.offset + op.width / 2 <= cut) return op
+  return { ...op, wallId: newId, offset: Math.max(0, op.offset - cut) }
+}
+
+export function splitRoomAtPoint(room: Room, x: number, z: number, tol = 0.14): Room {
+  let walls = room.walls
+  let doors = room.doors
+  let windows = room.windows
+  for (const wall of [...walls]) {
+    const hit = projectOnWall(wall, x, z)
+    if (hit.dist > tol) continue
+    const len = wallLen(wall)
+    if (hit.offset < 0.12 || hit.offset > len - 0.12) continue
+    const a: WallSeg = { id: wall.id, ax: wall.ax, az: wall.az, bx: hit.x, bz: hit.z }
+    const b: WallSeg = { id: uid(), ax: hit.x, az: hit.z, bx: wall.bx, bz: wall.bz }
+    walls = walls.flatMap((w) => (w.id === wall.id ? [a, b] : [w]))
+    doors = doors.map((d) => remapOpening(d, wall.id, hit.offset, b.id))
+    windows = windows.map((w) => remapOpening(w, wall.id, hit.offset, b.id))
+  }
+  return { ...room, walls, doors, windows }
+}
+
+export function insertWall(room: Room, ax: number, az: number, bx: number, bz: number): { room: Room; id: string } {
+  let next = splitRoomAtPoint(room, ax, az)
+  next = splitRoomAtPoint(next, bx, bz)
+  const id = uid()
+  next = { ...next, walls: [...next.walls, { id, ax, az, bx, bz }] }
+  for (const w of [...next.walls]) {
+    if (w.id === id) continue
+    next = splitRoomAtPoint(next, w.ax, w.az)
+    next = splitRoomAtPoint(next, w.bx, w.bz)
+  }
+  return { room: withBounds(next), id }
 }

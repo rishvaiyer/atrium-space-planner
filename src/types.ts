@@ -1,7 +1,7 @@
 export type Category = 'restaurant' | 'office' | 'retail' | 'healthcare' | 'home' | 'education' | 'habitat'
 export type Tool = 'select' | 'measure' | 'pan' | 'paint' | 'stamp' | 'note' | 'wall' | 'door' | 'window'
 export type CameraMode = 'orbit' | 'eye' | 'top'
-export type ArchSel = { kind: 'wall' | 'door' | 'window'; id: string }
+export type ArchSel = { kind: 'wall' | 'door' | 'window' | 'space'; id: string }
 export type FloorFinish =
   | 'oak'
   | 'walnut'
@@ -69,6 +69,13 @@ export interface WindowSpec {
   head: number
 }
 
+export interface Space {
+  id: string
+  name: string
+  polygon: { x: number; z: number }[]
+  wallIds: string[]
+}
+
 export interface Room {
   width: number
   depth: number
@@ -79,6 +86,7 @@ export interface Room {
   walls: WallSeg[]
   doors: Door[]
   windows: WindowSpec[]
+  spaces: Space[]
 }
 
 export interface ComplianceCheck {

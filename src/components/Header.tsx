@@ -1,8 +1,10 @@
-import { usePlanner } from '../store'
-import { downloadJson, downloadText } from '../project'
+import { openBoard } from '../board'
 import { catalogItem } from '../catalog'
-import { ThemeToggle } from './ThemeToggle'
+import { analyzeLayout } from '../compliance'
+import { downloadJson, downloadText } from '../project'
+import { usePlanner } from '../store'
 import { Icon } from './Icon'
+import { ThemeToggle } from './ThemeToggle'
 
 export function Header({
   compact = false,
@@ -37,6 +39,27 @@ export function Header({
       rows.push(`${def.sku},${def.name},${qty},${def.price},${def.price * qty}`)
     }
     downloadText('atrium-takeoff.csv', rows.join('\n'), 'text/csv')
+  }
+
+  const printBoard = () => {
+    const s = usePlanner.getState()
+    const analysis = analyzeLayout({
+      room: s.room,
+      items: s.items,
+      tier: s.budgetTier,
+      floor: s.floorFinish,
+      cap: s.budgetCap,
+      jurisdiction: s.jurisdiction,
+      worldId: s.worldId,
+      occupancyGroup: s.occupancyGroup,
+    })
+    openBoard({
+      name: s.projectName,
+      occupancyGroup: s.occupancyGroup,
+      room: s.room,
+      items: s.items,
+      analysis,
+    })
   }
 
   return (
@@ -75,6 +98,9 @@ export function Header({
             CSV
           </button>
         )}
+        <button type="button" title="Printable plan, cost, and code" onClick={printBoard}>
+          Board
+        </button>
         <span className="sep" />
         <button
           type="button"
