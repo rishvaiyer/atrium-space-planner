@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
 import { catalogItem } from '../catalog'
 import { FurnitureMesh, RoomMesh } from '../scene/Furniture'
@@ -7,15 +7,13 @@ import { LowPower } from '../lowPower'
 import { useIsMobile } from '../media'
 import { usePlanner } from '../store'
 import { planetTexture } from '../textures'
-import type { FloorFinish, PlacedItem, Room, WallFinish } from '../types'
+import type { CameraMode, FloorFinish, PlacedItem, Room, WallFinish } from '../types'
 import { worldOf, type World, type WorldId } from '../worlds'
-import { Crops } from './Crops'
 import { GLBoundary } from './GLBoundary'
 
 const CAMERA = { position: [12.5, 7.4, 12] as [number, number, number], fov: 38, near: 0.1, far: 80 }
 const CAMERA_SPACE = { position: [14, 8.2, 14] as [number, number, number], fov: 42, near: 0.1, far: 160 }
 const CAMERA_MOBILE = { ...CAMERA, fov: 46 }
-const ORBIT_TARGET: [number, number, number] = [5.6, 0.4, 4.2]
 const WRAP: CSSProperties = { width: '100%', height: '100%' }
 const GL = {
   antialias: false,
@@ -45,6 +43,7 @@ export function Viewport3D() {
   const brand = usePlanner((s) => s.brandColor)
   const selectedIds = usePlanner((s) => s.selectedIds)
   const worldId = usePlanner((s) => s.worldId)
+  const cameraMode = usePlanner((s) => s.cameraMode)
   const world = worldOf(worldId)
   const sun = useMemo(() => sunFromTime(time), [time])
   const mobile = useIsMobile()
@@ -87,7 +86,6 @@ export function Viewport3D() {
 
   return (
     <div className="viewport3d">
-      <Crops />
       <div className="view-label">Model</div>
       <GLBoundary>
         <Canvas
@@ -134,13 +132,13 @@ export function Viewport3D() {
               brand={brand}
               selectedIds={selectedIds}
             />
+            <CameraRig mode={cameraMode} room={room} />
             <OrbitControls
               makeDefault
               enableDamping={false}
-              maxPolarAngle={Math.PI / 2 - 0.04}
-              minDistance={3}
+              maxPolarAngle={cameraMode === 'eye' ? Math.PI / 2 - 0.02 : Math.PI / 2 - 0.04}
+              minDistance={cameraMode === 'eye' ? 0.4 : 3}
               maxDistance={worldId === 'earth' ? 28 : 48}
-              target={ORBIT_TARGET}
             />
           </LowPower.Provider>
         </Canvas>
@@ -157,6 +155,25 @@ function Planet({ world }: { world: World }) {
       <meshStandardMaterial map={map} roughness={1} metalness={0} />
     </mesh>
   )
+}
+
+function CameraRig({ mode, room }: { mode: CameraMode; room: Room }) {
+  const { camera, controls } = useThree()
+  useLayoutEffect(() => {
+    const cx = room.width / 2
+    const cz = room.depth / 2
+    const ty = mode === 'eye' ? 1.5 : 0.4
+    if (mode === 'eye') {
+      camera.position.set(Math.min(1.5, room.width * 0.18), 1.55, cz)
+    } else if (mode === 'top') {
+      camera.position.set(cx, Math.max(room.width, room.depth) * 1.15, cz + 0.05)
+    } else {
+      camera.position.set(cx + 7, 7.2, cz + 7)
+    }
+    const orbit = controls as { target?: { set: (x: number, y: number, z: number) => void } } | null
+    orbit?.target?.set(cx, ty, cz)
+  }, [mode, room.width, room.depth, camera, controls])
+  return null
 }
 
 function Scene({
@@ -244,7 +261,7 @@ function PlacedMesh({
       {selected && (
         <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.28, 0.34, 32]} />
-          <meshBasicMaterial color="#ff4d00" />
+          <meshBasicMaterial color="#3b82f6" />
         </mesh>
       )}
     </group>
@@ -305,7 +322,6 @@ function IsoView({
 
   return (
     <div className="viewport3d iso-view">
-      <Crops />
       <div className="view-label">Model · iso</div>
       <svg viewBox={`${minX} ${minY} ${w} ${h}`} className="iso-svg">
         <polygon

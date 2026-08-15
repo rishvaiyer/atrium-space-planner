@@ -35,7 +35,19 @@ export function FurnitureMesh({ item, brand }: { item: PlacedItem; brand: string
     case 'banquette':
       return <Banquette w={def.w} d={def.d} accent={accent} />
     case 'lounge':
+    case 'sofa':
       return <Banquette w={def.w} d={def.d} accent={accent} />
+    case 'bed':
+      return <Banquette w={def.w} d={Math.min(def.d, 1.1)} accent={accent} />
+    case 'exam-table':
+      return <Table top={def.w} square depth={def.d} />
+    case 'coffee-table':
+      return <Table top={def.w} square depth={def.d} />
+    case 'reception':
+    case 'whiteboard':
+      return <Bar w={def.w} d={Math.max(def.d, 0.12)} h={def.h} />
+    case 'waiting-chair':
+      return <Chair accent={accent} />
     case 'espresso-bar':
       return <Bar w={def.w} d={def.d} h={def.h} machine />
     case 'service-counter':

@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import { layoutForWorld, ROOM } from './defaultLayout'
-import { snapTo, uid } from './geometry'
+import { clamp, snapTo, uid } from './geometry'
 import type {
   BudgetTier,
+  CameraMode,
   Category,
   FloorFinish,
   Jurisdiction,
@@ -14,6 +15,8 @@ import type {
 } from './types'
 import type { WorldId } from './worlds'
 import { worldOf } from './worlds'
+import type { ProjectFile } from './project'
+import { templateById } from './templates'
 
 const HISTORY_LIMIT = 40
 
@@ -50,6 +53,14 @@ export interface PlannerState {
   notes: Note[]
   past: PlacedItem[][]
   future: PlacedItem[][]
+  projectName: string
+  templateId: string
+  occupancyGroup: string
+  showLibrary: boolean
+  showSpec: boolean
+  focusMode: boolean
+  cameraMode: CameraMode
+  viewEpoch: number
   select: (id: string | null, additive?: boolean) => void
   setTool: (tool: Tool) => void
   setCategory: (category: Category) => void
@@ -86,9 +97,20 @@ export interface PlannerState {
       | 'showOccupancy'
       | 'showLighting'
       | 'snapOn'
-      | 'isDragging3d',
+      | 'isDragging3d'
+      | 'showLibrary'
+      | 'showSpec'
+      | 'focusMode',
     value: boolean,
   ) => void
+  setProjectName: (projectName: string) => void
+  setCameraMode: (cameraMode: CameraMode) => void
+  setRoom: (patch: Partial<Pick<Room, 'width' | 'depth' | 'wallHeight'>>) => void
+  loadTemplate: (id: string) => void
+  toProject: () => ProjectFile
+  applyProject: (file: ProjectFile) => void
+  fitView: () => void
+  nudgeSelected: (dx: number, dz: number) => void
   setMeasurePoint: (point: { x: number; z: number }) => void
   clearMeasure: () => void
   commitHistory: () => void
@@ -121,8 +143,8 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   showOpenings: true,
   showOccupancy: false,
   showLighting: true,
-  brandColor: '#ff4d00',
-  floorFinish: 'concrete',
+  brandColor: '#3b82f6',
+  floorFinish: 'oak',
   wallFinish: 'plaster',
   timeOfDay: 18.5,
   budgetTier: 'standard',
@@ -134,6 +156,14 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   notes: [],
   past: [],
   future: [],
+  projectName: 'Café',
+  templateId: 'cafe',
+  occupancyGroup: 'A-2 Assembly',
+  showLibrary: true,
+  showSpec: true,
+  focusMode: false,
+  cameraMode: 'orbit',
+  viewEpoch: 0,
 
   select: (id, additive = false) => {
     set((state) => {
@@ -351,8 +381,94 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   },
 
   resetLayout: () => {
-    const { worldId, commitHistory } = get()
+    const { templateId, commitHistory } = get()
     commitHistory()
-    set({ items: layoutForWorld(worldId), selectedIds: [], pendingCatalogId: null, notes: [] })
+    get().loadTemplate(templateId)
+  },
+
+  setProjectName: (projectName) => set((s) => (s.projectName === projectName ? s : { projectName })),
+  setCameraMode: (cameraMode) => set((s) => (s.cameraMode === cameraMode ? s : { cameraMode })),
+  fitView: () => set((s) => ({ viewEpoch: s.viewEpoch + 1 })),
+  setRoom: (patch) =>
+    set((s) => {
+      const width = clamp(patch.width ?? s.room.width, 3, 28)
+      const depth = clamp(patch.depth ?? s.room.depth, 3, 22)
+      const wallHeight = clamp(patch.wallHeight ?? s.room.wallHeight, 2.2, 6)
+      if (width === s.room.width && depth === s.room.depth && wallHeight === s.room.wallHeight) return s
+      return { room: { ...s.room, width, depth, wallHeight }, viewEpoch: s.viewEpoch + 1 }
+    }),
+  nudgeSelected: (dx, dz) => {
+    const { selectedIds, items, snap } = get()
+    if (!selectedIds.length) return
+    set({
+      items: items.map((it) =>
+        selectedIds.includes(it.id) ? { ...it, x: it.x + dx * snap, z: it.z + dz * snap } : it,
+      ),
+    })
+  },
+  loadTemplate: (id) => {
+    const t = templateById(id)
+    get().commitHistory()
+    set((s) => ({
+      templateId: t.id,
+      projectName: t.name,
+      occupancyGroup: t.occupancyGroup,
+      room: t.room,
+      items: t.items(),
+      notes: [],
+      category: t.category,
+      floorFinish: t.floor,
+      wallFinish: t.wall,
+      timeOfDay: t.timeOfDay,
+      budgetCap: t.budgetCap,
+      budgetTier: t.budgetTier,
+      selectedIds: [],
+      pendingCatalogId: null,
+      worldId: 'earth',
+      viewEpoch: s.viewEpoch + 1,
+    }))
+  },
+  toProject: () => {
+    const s = get()
+    return {
+      version: 1 as const,
+      name: s.projectName,
+      templateId: s.templateId,
+      occupancyGroup: s.occupancyGroup,
+      room: s.room,
+      items: s.items,
+      notes: s.notes,
+      brandColor: s.brandColor,
+      floorFinish: s.floorFinish,
+      wallFinish: s.wallFinish,
+      timeOfDay: s.timeOfDay,
+      budgetTier: s.budgetTier,
+      budgetCap: s.budgetCap,
+      jurisdiction: s.jurisdiction,
+      category: s.category,
+    }
+  },
+  applyProject: (file) => {
+    get().commitHistory()
+    set((s) => ({
+      projectName: file.name,
+      templateId: file.templateId,
+      occupancyGroup: file.occupancyGroup,
+      room: file.room,
+      items: file.items,
+      notes: file.notes ?? [],
+      brandColor: file.brandColor,
+      floorFinish: file.floorFinish,
+      wallFinish: file.wallFinish,
+      timeOfDay: file.timeOfDay,
+      budgetTier: file.budgetTier,
+      budgetCap: file.budgetCap,
+      jurisdiction: file.jurisdiction,
+      category: file.category,
+      selectedIds: [],
+      pendingCatalogId: null,
+      worldId: 'earth',
+      viewEpoch: s.viewEpoch + 1,
+    }))
   },
 }))

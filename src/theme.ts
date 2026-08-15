@@ -20,7 +20,7 @@ export function applyTheme(theme: Theme) {
   root.dataset.theme = theme
   root.style.colorScheme = theme
   const meta = document.querySelector('meta[name="theme-color"]')
-  if (meta) meta.setAttribute('content', theme === 'dark' ? '#0c0c0d' : '#f6f4f0')
+  if (meta) meta.setAttribute('content', theme === 'dark' ? '#111113' : '#f4f4f2')
 }
 
 export function persistTheme(theme: Theme) {

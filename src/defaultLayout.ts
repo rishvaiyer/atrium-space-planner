@@ -3,7 +3,7 @@ import { uid } from './geometry'
 
 const PI = Math.PI
 
-function item(
+export function item(
   catalogId: string,
   x: number,
   z: number,
@@ -13,7 +13,7 @@ function item(
   return { id: uid(), catalogId, x, z, rotation, finish }
 }
 
-function chairsAround(tx: number, tz: number, span = 0.62): PlacedItem[] {
+export function chairsAround(tx: number, tz: number, span = 0.62): PlacedItem[] {
   return [
     item('cafe-chair', tx, tz - span, 0),
     item('cafe-chair', tx, tz + span, PI),

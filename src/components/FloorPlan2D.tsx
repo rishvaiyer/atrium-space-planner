@@ -1,5 +1,4 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent } from 'react'
-import { Crops } from './Crops'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent } from 'react'
 import { catalogItem } from '../catalog'
 import { analyzeLayout } from '../compliance'
 import { formatMm, itemAabb } from '../geometry'
@@ -33,16 +32,23 @@ export function FloorPlan2D() {
   const jurisdiction = usePlanner((s) => s.jurisdiction)
   const worldId = usePlanner((s) => s.worldId)
 
+  const occupancyGroup = usePlanner((s) => s.occupancyGroup)
+  const viewEpoch = usePlanner((s) => s.viewEpoch)
+
   const analysis = useMemo(() => {
     try {
-      return analyzeLayout({ room, items, tier, floor, cap, jurisdiction, worldId })
+      return analyzeLayout({ room, items, tier, floor, cap, jurisdiction, worldId, occupancyGroup })
     } catch {
       return null
     }
-  }, [room, items, tier, floor, cap, jurisdiction, worldId])
+  }, [room, items, tier, floor, cap, jurisdiction, worldId, occupancyGroup])
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState({ x: -1.4, y: -1.5, w: room.width + 2.8, h: room.depth + 3 })
+
+  useEffect(() => {
+    setView({ x: -1.2, y: -1.3, w: room.width + 2.4, h: room.depth + 2.6 })
+  }, [viewEpoch, room.width, room.depth])
   const drag = useRef<{
     mode: 'pan' | 'item'
     ids: string[]
@@ -175,7 +181,6 @@ export function FloorPlan2D() {
       onPointerUp={onPointerUp}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <Crops />
       <div className="view-label">Plan</div>
       <svg viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} className="plan-svg">
         <defs>

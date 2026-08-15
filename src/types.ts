@@ -1,5 +1,6 @@
-export type Category = 'restaurant' | 'office' | 'retail' | 'habitat'
+export type Category = 'restaurant' | 'office' | 'retail' | 'healthcare' | 'home' | 'education' | 'habitat'
 export type Tool = 'select' | 'measure' | 'pan' | 'paint' | 'stamp' | 'note'
+export type CameraMode = 'orbit' | 'eye' | 'top'
 export type FloorFinish =
   | 'oak'
   | 'walnut'

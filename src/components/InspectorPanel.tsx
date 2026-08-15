@@ -5,7 +5,7 @@ import { formatMm, formatMoney } from '../geometry'
 import { usePlanner } from '../store'
 import type { BudgetTier, FloorFinish, Jurisdiction, WallFinish } from '../types'
 
-const BRANDS = ['#ff4d00', '#111111', '#efeae2', '#2f6fed', '#6b5344', '#c45c4a']
+const BRANDS = ['#3b82f6', '#111111', '#efeae2', '#c2410c', '#6b5344', '#0f766e']
 const FLOORS: FloorFinish[] = [
   'oak',
   'walnut',
@@ -35,16 +35,18 @@ export function InspectorPanel() {
   const jurisdiction = usePlanner((s) => s.jurisdiction)
   const worldId = usePlanner((s) => s.worldId)
 
+  const occupancyGroup = usePlanner((s) => s.occupancyGroup)
+
   const selected = selectedIds.length === 1 ? items.find((i) => i.id === selectedIds[0]) : undefined
   const def = selected ? catalogItem(selected.catalogId) : undefined
 
   const analysis = useMemo(() => {
     try {
-      return analyzeLayout({ room, items, tier, floor, cap, jurisdiction, worldId })
+      return analyzeLayout({ room, items, tier, floor, cap, jurisdiction, worldId, occupancyGroup })
     } catch {
       return null
     }
-  }, [room, items, tier, floor, cap, jurisdiction, worldId])
+  }, [room, items, tier, floor, cap, jurisdiction, worldId, occupancyGroup])
 
   const hourLabel = `${Math.floor(time).toString().padStart(2, '0')}:${Math.round((time % 1) * 60)
     .toString()
@@ -85,6 +87,39 @@ export function InspectorPanel() {
         ) : (
           <p className="empty">Estimate unavailable.</p>
         )}
+      </section>
+
+      <section>
+        <div className="panel-kicker">Envelope</div>
+        <label className="field">
+          Width · depth · height (m)
+          <div className="dims">
+            <input
+              type="number"
+              min={3}
+              max={28}
+              step={0.1}
+              value={Number(room.width.toFixed(2))}
+              onChange={(e) => usePlanner.getState().setRoom({ width: Number(e.target.value) })}
+            />
+            <input
+              type="number"
+              min={3}
+              max={22}
+              step={0.1}
+              value={Number(room.depth.toFixed(2))}
+              onChange={(e) => usePlanner.getState().setRoom({ depth: Number(e.target.value) })}
+            />
+            <input
+              type="number"
+              min={2.2}
+              max={6}
+              step={0.05}
+              value={Number(room.wallHeight.toFixed(2))}
+              onChange={(e) => usePlanner.getState().setRoom({ wallHeight: Number(e.target.value) })}
+            />
+          </div>
+        </label>
       </section>
 
       <section>

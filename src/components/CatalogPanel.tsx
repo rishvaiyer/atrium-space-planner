@@ -3,9 +3,12 @@ import { usePlanner } from '../store'
 import type { Category } from '../types'
 
 const CATS: { id: Category; label: string }[] = [
-  { id: 'restaurant', label: 'Restaurant' },
+  { id: 'restaurant', label: 'F&B' },
   { id: 'office', label: 'Office' },
   { id: 'retail', label: 'Retail' },
+  { id: 'healthcare', label: 'Health' },
+  { id: 'home', label: 'Home' },
+  { id: 'education', label: 'School' },
 ]
 
 export function CatalogPanel() {
@@ -21,7 +24,7 @@ export function CatalogPanel() {
       <header className="panel-head">
         <div>
           <div className="panel-kicker">Library</div>
-          <h2>Place fixtures</h2>
+          <h2>Fixtures</h2>
         </div>
       </header>
       <div className="cats">

@@ -228,9 +228,11 @@ export function analyzeLayout(options: {
   cap: number
   jurisdiction: string
   worldId: WorldId
+  occupancyGroup?: string
 }): Analysis {
   const { room, items, tier, floor, cap, jurisdiction, worldId } = options
   const world = worldOf(worldId)
+  const occupancyGroup = options.occupancyGroup ?? world.occupancyGroup
   const area = room.width * room.depth
   const seats = items.reduce((sum, item) => sum + catalogItem(item.catalogId).seats, 0)
   const occupantLoad = Math.max(1, Math.ceil(area / OCCUPANT_M2))
@@ -408,7 +410,7 @@ export function analyzeLayout(options: {
     seats,
     occupantLoad: worldId === 'earth' ? occupantLoad : world.crewTarget,
     seatsPerM2: seats / area,
-    occupancyGroup: world.occupancyGroup,
+    occupancyGroup,
     worldId,
     gravityG: world.gravityG,
     atmosphereKpa: world.atmosphereKpa,
