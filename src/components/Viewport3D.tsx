@@ -1,21 +1,20 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
+import { OrbitControls, Stars } from '@react-three/drei'
 import { catalogItem } from '../catalog'
 import { FurnitureMesh, RoomMesh } from '../scene/Furniture'
 import { LowPower } from '../lowPower'
 import { useIsMobile } from '../media'
 import { usePlanner } from '../store'
+import { planetTexture } from '../textures'
 import type { FloorFinish, PlacedItem, Room } from '../types'
+import { worldOf, type World, type WorldId } from '../worlds'
 import { GLBoundary } from './GLBoundary'
 
 const CAMERA = { position: [12.5, 7.4, 12] as [number, number, number], fov: 38, near: 0.1, far: 80 }
+const CAMERA_SPACE = { position: [14, 8.2, 14] as [number, number, number], fov: 42, near: 0.1, far: 160 }
 const CAMERA_MOBILE = { ...CAMERA, fov: 46 }
 const ORBIT_TARGET: [number, number, number] = [5.6, 0.4, 4.2]
-const BG = '#151a22'
-const FOG_ARGS: [string, number, number] = [BG, 16, 38]
-const HEMI_SKY = '#d5e4f5'
-const HEMI_GROUND = '#2a313c'
 const WRAP: CSSProperties = { width: '100%', height: '100%' }
 const GL = {
   antialias: false,
@@ -43,9 +42,18 @@ export function Viewport3D() {
   const showWalls = usePlanner((s) => s.showWalls)
   const brand = usePlanner((s) => s.brandColor)
   const selectedIds = usePlanner((s) => s.selectedIds)
+  const worldId = usePlanner((s) => s.worldId)
+  const world = worldOf(worldId)
   const sun = useMemo(() => sunFromTime(time), [time])
   const mobile = useIsMobile()
-  const hemiArgs = useMemo(() => [HEMI_SKY, HEMI_GROUND, sun.hemi] as [string, string, number], [sun.hemi])
+  const hemiArgs = useMemo(
+    () => [world.hemiSky, world.hemiGround, sun.hemi] as [string, string, number],
+    [world.hemiSky, world.hemiGround, sun.hemi],
+  )
+  const fogArgs = useMemo(
+    () => [world.sky, world.id === 'earth' ? 16 : 22, world.fogFar] as [string, number, number],
+    [world.sky, world.fogFar, world.id],
+  )
   const [useIso, setUseIso] = useState(() => !canCreateWebGL())
   const glReady = useRef(false)
 
@@ -70,36 +78,37 @@ export function Viewport3D() {
         brand={brand}
         selectedIds={selectedIds}
         floor={floor}
+        worldId={worldId}
       />
     )
   }
 
   return (
     <div className="viewport3d">
-      <div className="view-label">3D · orbit</div>
+      <div className="view-label">3D · {world.name.toLowerCase()}</div>
       <GLBoundary>
         <Canvas
           style={WRAP}
-          shadows={!mobile}
+          shadows={!mobile && worldId === 'earth'}
           dpr={1}
           gl={GL}
-          camera={mobile ? CAMERA_MOBILE : CAMERA}
+          camera={worldId === 'earth' ? (mobile ? CAMERA_MOBILE : CAMERA) : CAMERA_SPACE}
           onPointerMissed={() => usePlanner.getState().select(null)}
           onCreated={({ gl }) => {
             glReady.current = true
-            gl.setClearColor(BG, 1)
+            gl.setClearColor(world.sky, 1)
           }}
         >
           <LowPower.Provider value={mobile}>
-            <color attach="background" args={[BG]} />
-            <fog attach="fog" args={FOG_ARGS} />
+            <color attach="background" args={[world.sky]} />
+            <fog attach="fog" args={fogArgs} />
             <hemisphereLight args={hemiArgs} />
             <ambientLight intensity={mobile ? sun.ambient + 0.22 : sun.ambient} />
             <directionalLight
               position={sun.position}
-              intensity={mobile ? sun.intensity * 0.7 : sun.intensity}
+              intensity={mobile ? sun.intensity * 0.7 : sun.intensity * (worldId === 'earth' ? 1 : 0.85)}
               color={sun.color}
-              castShadow={!mobile}
+              castShadow={!mobile && worldId === 'earth'}
               shadow-mapSize-width={512}
               shadow-mapSize-height={512}
               shadow-camera-near={1}
@@ -109,28 +118,40 @@ export function Viewport3D() {
               shadow-camera-top={12}
               shadow-camera-bottom={-12}
             />
+            {worldId !== 'earth' && <Stars radius={60} depth={30} count={mobile ? 400 : 900} factor={3} fade speed={0} />}
+            {worldId !== 'earth' && <Planet world={world} />}
             <Scene
               items={items}
               showFurniture={showFurniture}
               showElectrical={showElectrical}
               room={room}
               floor={floor}
-              showWalls={showWalls}
+              showWalls={showWalls && worldId === 'earth'}
               brand={brand}
               selectedIds={selectedIds}
             />
             <OrbitControls
               makeDefault
               enableDamping={false}
-              maxPolarAngle={Math.PI / 2 - 0.06}
+              maxPolarAngle={Math.PI / 2 - 0.04}
               minDistance={3}
-              maxDistance={28}
+              maxDistance={worldId === 'earth' ? 28 : 48}
               target={ORBIT_TARGET}
             />
           </LowPower.Provider>
         </Canvas>
       </GLBoundary>
     </div>
+  )
+}
+
+function Planet({ world }: { world: World }) {
+  const map = useMemo(() => planetTexture(world.id), [world.id])
+  return (
+    <mesh position={[5.6, -20, 4.2]} rotation={[0.35, 0.4, 0]}>
+      <sphereGeometry args={[18.6, 48, 48]} />
+      <meshStandardMaterial map={map} roughness={1} metalness={0} />
+    </mesh>
   )
 }
 
@@ -236,6 +257,7 @@ function IsoView({
   brand,
   selectedIds,
   floor,
+  worldId,
 }: {
   room: Room
   items: PlacedItem[]
@@ -244,6 +266,7 @@ function IsoView({
   brand: string
   selectedIds: string[]
   floor: FloorFinish
+  worldId: WorldId
 }) {
   const floorPts = [
     iso(0, 0),
@@ -251,8 +274,10 @@ function IsoView({
     iso(room.width, room.depth),
     iso(0, room.depth),
   ]
-  const floorFill =
+  const earthFloor =
     floor === 'oak' ? '#8d7358' : floor === 'terrazzo' ? '#b8bdc6' : floor === 'tile' ? '#c5ccd4' : '#8d939c'
+  const floorFill =
+    worldId === 'mars' ? '#8a4a32' : worldId === 'moon' ? '#8d9198' : worldId === 'titan' ? '#6a5a40' : earthFloor
 
   const xs = floorPts.map((p) => p.x)
   const ys = floorPts.map((p) => p.y)

@@ -172,6 +172,52 @@ export function marbleTexture(): CanvasTexture {
   }, 1, 1)
 }
 
+export function planetTexture(id: string): CanvasTexture {
+  return makeTexture(`planet-${id}`, 512, (ctx, size) => {
+    if (id === 'mars') {
+      ctx.fillStyle = '#8a3b28'
+      ctx.fillRect(0, 0, size, size)
+      for (let i = 0; i < 80; i++) {
+        ctx.fillStyle = `rgba(40, 16, 10, ${0.08 + Math.random() * 0.18})`
+        ctx.beginPath()
+        ctx.arc(Math.random() * size, Math.random() * size, 8 + Math.random() * 40, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.fillStyle = 'rgba(210, 170, 120, 0.25)'
+      ctx.fillRect(0, size * 0.42, size, 18)
+      return
+    }
+    if (id === 'moon') {
+      ctx.fillStyle = '#9aa0a8'
+      ctx.fillRect(0, 0, size, size)
+      for (let i = 0; i < 70; i++) {
+        ctx.fillStyle = `rgba(40, 42, 48, ${0.12 + Math.random() * 0.3})`
+        ctx.beginPath()
+        ctx.arc(Math.random() * size, Math.random() * size, 4 + Math.random() * 28, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      return
+    }
+    if (id === 'titan') {
+      ctx.fillStyle = '#6a5a40'
+      ctx.fillRect(0, 0, size, size)
+      ctx.fillStyle = 'rgba(40, 70, 90, 0.35)'
+      ctx.fillRect(0, size * 0.55, size, size * 0.45)
+      for (let i = 0; i < 30; i++) {
+        ctx.fillStyle = `rgba(200, 170, 110, ${0.08 + Math.random() * 0.12})`
+        ctx.fillRect(0, Math.random() * size, size, 6)
+      }
+      return
+    }
+    ctx.fillStyle = '#1d4ed8'
+    ctx.fillRect(0, 0, size, size)
+    ctx.fillStyle = '#15803d'
+    ctx.beginPath()
+    ctx.ellipse(size * 0.35, size * 0.45, 90, 50, 0.4, 0, Math.PI * 2)
+    ctx.fill()
+  }, 1, 1)
+}
+
 export function floorTexture(kind: 'oak' | 'terrazzo' | 'concrete' | 'tile'): CanvasTexture {
   switch (kind) {
     case 'oak':

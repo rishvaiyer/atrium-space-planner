@@ -6,6 +6,7 @@ const CATS: { id: Category; label: string }[] = [
   { id: 'restaurant', label: 'Restaurant' },
   { id: 'office', label: 'Office' },
   { id: 'retail', label: 'Retail' },
+  { id: 'habitat', label: 'Habitat' },
 ]
 
 export function CatalogPanel() {

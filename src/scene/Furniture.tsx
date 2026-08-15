@@ -55,6 +55,22 @@ export function FurnitureMesh({ item, brand }: { item: PlacedItem; brand: string
       return <Credenza />
     case 'gondola':
       return <Gondola />
+    case 'hab-mod':
+      return <HabMod accent={accent} />
+    case 'airlock':
+      return <Airlock />
+    case 'greenhouse':
+      return <Greenhouse />
+    case 'eclss':
+      return <Eclss />
+    case 'solar-array':
+      return <Solar />
+    case 'rtg':
+      return <Rtg />
+    case 'rad-shelter':
+      return <Shelter accent={accent} />
+    case 'isru':
+      return <Isru />
     default:
       return (
         <mesh position={[0, def.h / 2, 0]} castShadow receiveShadow>
@@ -343,6 +359,108 @@ function Gondola() {
           <meshStandardMaterial color="#b7b1a6" />
         </mesh>
       ))}
+    </group>
+  )
+}
+
+function HabMod({ accent }: { accent: string }) {
+  return (
+    <group>
+      <mesh position={[0, 1.2, 0]} castShadow>
+        <cylinderGeometry args={[1.15, 1.15, 2.3, 20]} />
+        <meshStandardMaterial color="#c5ccd4" metalness={0.35} roughness={0.35} />
+      </mesh>
+      <mesh position={[0, 2.38, 0]}>
+        <cylinderGeometry args={[1.05, 1.15, 0.16, 20]} />
+        <meshStandardMaterial color={accent} metalness={0.2} roughness={0.4} />
+      </mesh>
+    </group>
+  )
+}
+
+function Airlock() {
+  return (
+    <group>
+      <mesh position={[0, 1.1, 0]} castShadow>
+        <cylinderGeometry args={[0.62, 0.62, 2.1, 16]} />
+        <meshStandardMaterial color="#8b95a0" metalness={0.45} roughness={0.3} />
+      </mesh>
+      <mesh position={[0, 1.1, 0.7]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.42, 0.06, 8, 18]} />
+        <meshStandardMaterial color="#7ee0d6" metalness={0.5} roughness={0.25} />
+      </mesh>
+    </group>
+  )
+}
+
+function Greenhouse() {
+  return (
+    <group>
+      <mesh position={[0, 1.05, 0]}>
+        <boxGeometry args={[3.1, 2.05, 1.7]} />
+        <meshStandardMaterial color="#7ee0d6" transparent opacity={0.22} roughness={0.05} metalness={0.1} />
+      </mesh>
+      <mesh position={[0, 0.08, 0]}>
+        <boxGeometry args={[3.2, 0.12, 1.8]} />
+        <meshStandardMaterial color="#2a333c" />
+      </mesh>
+    </group>
+  )
+}
+
+function Eclss() {
+  return (
+    <mesh position={[0, 1, 0]} castShadow>
+      <boxGeometry args={[1.15, 1.95, 0.75]} />
+      <meshStandardMaterial color="#4b5563" metalness={0.4} roughness={0.35} />
+    </mesh>
+  )
+}
+
+function Solar() {
+  return (
+    <mesh position={[0, 0.12, 0]} rotation={[-0.18, 0, 0]} castShadow>
+      <boxGeometry args={[3.5, 0.06, 1.05]} />
+      <meshStandardMaterial color="#1e3a8a" metalness={0.6} roughness={0.2} />
+    </mesh>
+  )
+}
+
+function Rtg() {
+  return (
+    <group>
+      <mesh position={[0, 0.7, 0]} castShadow>
+        <cylinderGeometry args={[0.38, 0.42, 1.3, 12]} />
+        <meshStandardMaterial color="#9ca3af" metalness={0.55} roughness={0.25} />
+      </mesh>
+      <mesh position={[0, 1.42, 0]}>
+        <cylinderGeometry args={[0.55, 0.55, 0.08, 12]} />
+        <meshStandardMaterial color="#fb7185" emissive="#fb7185" emissiveIntensity={0.35} />
+      </mesh>
+    </group>
+  )
+}
+
+function Shelter({ accent }: { accent: string }) {
+  return (
+    <mesh position={[0, 0.8, 0]} castShadow>
+      <boxGeometry args={[2.15, 1.55, 2.15]} />
+      <meshStandardMaterial color={accent} roughness={0.85} />
+    </mesh>
+  )
+}
+
+function Isru() {
+  return (
+    <group>
+      <mesh position={[0, 0.9, 0]} castShadow>
+        <boxGeometry args={[1.9, 1.7, 1.5]} />
+        <meshStandardMaterial color="#6b7280" metalness={0.3} roughness={0.45} />
+      </mesh>
+      <mesh position={[0.7, 1.9, 0]}>
+        <cylinderGeometry args={[0.12, 0.12, 1.1, 8]} />
+        <meshStandardMaterial color="#9ca3af" />
+      </mesh>
     </group>
   )
 }

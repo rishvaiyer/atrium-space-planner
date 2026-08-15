@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { createDefaultItems, ROOM } from './defaultLayout'
+import { layoutForWorld, ROOM } from './defaultLayout'
 import { snapTo, uid } from './geometry'
 import type {
   BudgetTier,
@@ -10,6 +10,8 @@ import type {
   Room,
   Tool,
 } from './types'
+import type { WorldId } from './worlds'
+import { worldOf } from './worlds'
 
 const HISTORY_LIMIT = 40
 
@@ -34,6 +36,7 @@ export interface PlannerState {
   budgetTier: BudgetTier
   budgetCap: number
   jurisdiction: Jurisdiction
+  worldId: WorldId
   isDragging3d: boolean
   measure: { a: { x: number; z: number } | null; b: { x: number; z: number } | null }
   past: PlacedItem[][]
@@ -54,6 +57,7 @@ export interface PlannerState {
   setTimeOfDay: (timeOfDay: number) => void
   setBudgetTier: (budgetTier: BudgetTier) => void
   setJurisdiction: (jurisdiction: Jurisdiction) => void
+  setWorld: (worldId: WorldId) => void
   setFlag: (
     key:
       | 'showWalls'
@@ -80,7 +84,7 @@ function cloneItems(items: PlacedItem[]): PlacedItem[] {
 
 export const usePlanner = create<PlannerState>((set, get) => ({
   room: ROOM,
-  items: createDefaultItems(),
+  items: layoutForWorld('earth'),
   selectedIds: [],
   tool: 'select',
   category: 'restaurant',
@@ -99,6 +103,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   budgetTier: 'standard',
   budgetCap: 18000,
   jurisdiction: 'IBC',
+  worldId: 'earth',
   isDragging3d: false,
   measure: { a: null, b: null },
   past: [],
@@ -219,6 +224,23 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   setBudgetTier: (budgetTier) => set((s) => (s.budgetTier === budgetTier ? s : { budgetTier })),
   setJurisdiction: (jurisdiction) =>
     set((s) => (s.jurisdiction === jurisdiction ? s : { jurisdiction })),
+  setWorld: (worldId) => {
+    const current = get()
+    if (current.worldId === worldId) return
+    const world = worldOf(worldId)
+    current.commitHistory()
+    set({
+      worldId,
+      items: layoutForWorld(worldId),
+      selectedIds: [],
+      pendingCatalogId: null,
+      category: world.catalog,
+      brandColor: world.brand,
+      floorFinish: world.floor,
+      timeOfDay: world.timeOfDay,
+      budgetCap: world.budgetCap,
+    })
+  },
   setFlag: (key, value) =>
     set((state) => (state[key] === value ? state : { [key]: value })),
 
@@ -263,7 +285,8 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   },
 
   resetLayout: () => {
-    get().commitHistory()
-    set({ items: createDefaultItems(), selectedIds: [], pendingCatalogId: null })
+    const { worldId, commitHistory } = get()
+    commitHistory()
+    set({ items: layoutForWorld(worldId), selectedIds: [], pendingCatalogId: null })
   },
 }))

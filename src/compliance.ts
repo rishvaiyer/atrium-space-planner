@@ -9,6 +9,8 @@ import type {
   PlacedItem,
   Room,
 } from './types'
+import type { WorldId } from './worlds'
+import { worldOf } from './worlds'
 
 const CELL = 0.2
 const TRAVEL_LIMIT: Record<string, number> = { IBC: 18, NBC: 20, Eurocode: 20 }
@@ -195,6 +197,10 @@ export interface Analysis {
   occupantLoad: number
   seatsPerM2: number
   occupancyGroup: string
+  worldId: WorldId
+  gravityG: number
+  atmosphereKpa: number
+  meanK: number
   maxTravelM: number
   travelLimitM: number
   aisleOk: boolean
@@ -215,8 +221,10 @@ export function analyzeLayout(options: {
   floor: FloorFinish
   cap: number
   jurisdiction: string
+  worldId: WorldId
 }): Analysis {
-  const { room, items, tier, floor, cap, jurisdiction } = options
+  const { room, items, tier, floor, cap, jurisdiction, worldId } = options
+  const world = worldOf(worldId)
   const area = room.width * room.depth
   const seats = items.reduce((sum, item) => sum + catalogItem(item.catalogId).seats, 0)
   const occupantLoad = Math.max(1, Math.ceil(area / OCCUPANT_M2))
@@ -273,60 +281,132 @@ export function analyzeLayout(options: {
     counters: 0,
     lighting: 0,
     other: 0,
+    habitat: 0,
+    power: 0,
+    life: 0,
   }
   for (const item of items) {
     const def = catalogItem(item.catalogId)
     groups[def.costGroup] += def.price * TIER_MULT[tier]
   }
-  const flooring = area * FLOOR_RATE[floor][tier]
-  const lines: CostLine[] = [
+  const flooring = area * (worldId === 'earth' ? FLOOR_RATE[floor][tier] : world.padUsdM2[tier])
+  const allLines: CostLine[] = [
     { group: 'seating', label: 'Seating', amount: groups.seating },
     { group: 'tables', label: 'Tables', amount: groups.tables },
     { group: 'counters', label: 'Counters & equipment', amount: groups.counters },
     { group: 'lighting', label: 'Lighting', amount: groups.lighting },
+    { group: 'habitat', label: 'Habitat modules', amount: groups.habitat },
+    { group: 'life', label: 'Life support', amount: groups.life },
+    { group: 'power', label: 'Power', amount: groups.power },
     { group: 'other', label: 'Fixtures', amount: groups.other },
-    { group: 'flooring', label: `Floor — ${floor}`, amount: flooring },
+    {
+      group: 'flooring',
+      label: worldId === 'earth' ? `Floor — ${floor}` : `Pad / ISRU shell`,
+      amount: flooring,
+    },
   ]
+  const lines = allLines.filter((line) => line.amount > 0 || line.group === 'flooring')
   const total = lines.reduce((s, l) => s + l.amount, 0)
 
   const travelOk = maxTravelM > 0 && maxTravelM <= travelLimitM && paths.every((p) => p.length < 90)
   const budgetOk = total <= cap
+  const count = (id: string) => items.filter((it) => it.catalogId === id).length
+  const crew = Math.max(seats, 1)
+  const o2Beds = count('greenhouse') * 3 + count('eclss') * 4 + count('isru') * 2
+  const powerKw =
+    count('solar-array') * 6 * world.solarFactor + count('rtg') * 8
+  const powerNeed = crew * 2.1 + count('greenhouse') * 2.4
+  const pressurized = count('hab-mod') * 2 + count('rad-shelter') * 4
+  const hasAirlock = count('airlock') > 0
+  const shielded =
+    world.radiation === 'low' ||
+    count('rad-shelter') > 0 ||
+    (world.radiation === 'high' && count('hab-mod') >= 2)
 
-  const checks: ComplianceCheck[] = [
-    {
-      id: 'egress',
-      label: 'Egress travel',
-      ok: travelOk,
-      detail: travelOk
-        ? `${maxTravelM.toFixed(1)} / ${travelLimitM} m`
-        : maxTravelM >= 90
-          ? 'Path blocked'
-          : `${maxTravelM.toFixed(1)} / ${travelLimitM} m`,
-    },
-    {
-      id: 'aisle',
-      label: 'ADA aisle / door',
-      ok: aisleReachable && adaDoor,
-      detail: aisleReachable && adaDoor
-        ? `${aisleMinM.toFixed(2)} m · door ${Math.round(doorWidth * 1000)} mm`
-        : !adaDoor
-          ? 'Door clear < 815 mm'
-          : 'Aisle under 915 mm',
-    },
-    {
-      id: 'budget',
-      label: 'Budget envelope',
-      ok: budgetOk,
-      detail: budgetOk ? 'Within capex cap' : 'Over cap',
-    },
-  ]
+  const checks: ComplianceCheck[] =
+    worldId === 'earth'
+      ? [
+          {
+            id: 'egress',
+            label: 'Egress travel',
+            ok: travelOk,
+            detail: travelOk
+              ? `${maxTravelM.toFixed(1)} / ${travelLimitM} m`
+              : maxTravelM >= 90
+                ? 'Path blocked'
+                : `${maxTravelM.toFixed(1)} / ${travelLimitM} m`,
+          },
+          {
+            id: 'aisle',
+            label: 'ADA aisle / door',
+            ok: aisleReachable && adaDoor,
+            detail: aisleReachable && adaDoor
+              ? `${aisleMinM.toFixed(2)} m · door ${Math.round(doorWidth * 1000)} mm`
+              : !adaDoor
+                ? 'Door clear < 815 mm'
+                : 'Aisle under 915 mm',
+          },
+          {
+            id: 'budget',
+            label: 'Budget envelope',
+            ok: budgetOk,
+            detail: budgetOk ? 'Within capex cap' : 'Over cap',
+          },
+        ]
+      : [
+          {
+            id: 'airlock',
+            label: 'Airlock',
+            ok: hasAirlock,
+            detail: hasAirlock ? 'EVA cycle possible' : 'No pressure vestibule',
+          },
+          {
+            id: 'pressure',
+            label: 'Pressurized berths',
+            ok: pressurized >= world.crewTarget,
+            detail: `${pressurized} / ${world.crewTarget} crew`,
+          },
+          {
+            id: 'eclss',
+            label: 'O₂ / ECLSS',
+            ok: o2Beds >= world.crewTarget,
+            detail: `${o2Beds} crew-days support / ${world.crewTarget} needed`,
+          },
+          {
+            id: 'power',
+            label: 'Power budget',
+            ok: powerKw >= powerNeed,
+            detail: `${powerKw.toFixed(1)} / ${powerNeed.toFixed(1)} kW · insolation ${world.solarFactor}×`,
+          },
+          {
+            id: 'rad',
+            label: 'Radiation',
+            ok: shielded,
+            detail:
+              world.radiation === 'low'
+                ? 'Magnetosphere / thick air'
+                : shielded
+                  ? 'Storm shelter online'
+                  : 'Unshielded surface dose',
+          },
+          {
+            id: 'budget',
+            label: 'Mission capex',
+            ok: budgetOk,
+            detail: budgetOk ? 'Within envelope' : 'Over cap',
+          },
+        ]
 
   return {
     area,
     seats,
-    occupantLoad,
+    occupantLoad: worldId === 'earth' ? occupantLoad : world.crewTarget,
     seatsPerM2: seats / area,
-    occupancyGroup: 'A-2 Assembly',
+    occupancyGroup: world.occupancyGroup,
+    worldId,
+    gravityG: world.gravityG,
+    atmosphereKpa: world.atmosphereKpa,
+    meanK: world.meanK,
     maxTravelM: maxTravelM >= 90 ? 0 : maxTravelM,
     travelLimitM,
     aisleOk: aisleReachable,

@@ -40,6 +40,17 @@ export const ROOM: Room = {
 }
 
 export function createDefaultItems(): PlacedItem[] {
+  return earthItems()
+}
+
+export function layoutForWorld(worldId: 'earth' | 'moon' | 'mars' | 'titan'): PlacedItem[] {
+  if (worldId === 'moon') return moonItems()
+  if (worldId === 'mars') return marsItems()
+  if (worldId === 'titan') return titanItems()
+  return earthItems()
+}
+
+function earthItems(): PlacedItem[] {
   const t1 = { x: 4.05, z: 2.55 }
   const t2 = { x: 6.55, z: 2.55 }
   const t3 = { x: 4.05, z: 5.55 }
@@ -69,5 +80,43 @@ export function createDefaultItems(): PlacedItem[] {
     item('pendant', t2.x, t2.z),
     item('pendant', t3.x, t3.z),
     item('pendant', 8.85, 7.2),
+  ]
+}
+
+function marsItems(): PlacedItem[] {
+  return [
+    item('airlock', 1.2, 1.15, 0),
+    item('hab-mod', 3.6, 2.2),
+    item('hab-mod', 6.2, 2.2),
+    item('rad-shelter', 9.1, 2.15),
+    item('eclss', 3.5, 4.7),
+    item('greenhouse', 7.0, 5.1, 0),
+    item('isru', 1.4, 6.6, PI / 2),
+    item('solar-array', 5.4, 7.45),
+    item('solar-array', 9.0, 7.45),
+  ]
+}
+
+function moonItems(): PlacedItem[] {
+  return [
+    item('airlock', 1.3, 1.2),
+    item('hab-mod', 3.8, 2.3),
+    item('rad-shelter', 6.6, 2.3),
+    item('eclss', 9.2, 2.2),
+    item('hab-mod', 4.0, 5.2),
+    item('solar-array', 7.6, 6.9),
+    item('solar-array', 7.6, 7.7),
+  ]
+}
+
+function titanItems(): PlacedItem[] {
+  return [
+    item('airlock', 1.25, 1.2),
+    item('hab-mod', 3.7, 2.4),
+    item('hab-mod', 6.4, 2.4),
+    item('greenhouse', 4.8, 5.2),
+    item('eclss', 8.6, 5.0),
+    item('rtg', 1.5, 6.8),
+    item('isru', 9.4, 7.0, PI / 2),
   ]
 }

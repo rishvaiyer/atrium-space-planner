@@ -17,6 +17,7 @@ type MobileTab = 'plan' | 'view3d' | 'catalog' | 'inspect'
 
 export default function App() {
   const mobile = useIsMobile()
+  const worldId = usePlanner((s) => s.worldId)
   const [tab, setTab] = useState<MobileTab>('plan')
   const [allow3d, setAllow3d] = useState(false)
 
@@ -72,7 +73,7 @@ export default function App() {
   const show3d = allow3d && want3d
 
   return (
-    <div className={`app ${mobile ? 'mobile' : ''}`}>
+    <div className={`app ${mobile ? 'mobile' : ''} world-${worldId}`}>
       <Header compact={mobile} />
       {mobile && (
         <nav className="mobile-tabs">

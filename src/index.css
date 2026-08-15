@@ -145,6 +145,37 @@ button.danger:hover {
   color: var(--muted);
 }
 
+.worlds {
+  display: flex;
+  gap: 4px;
+}
+
+.worlds button {
+  font-size: 11px;
+  padding: 4px 9px;
+  letter-spacing: 0.04em;
+}
+
+.header .project {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.glyph.module::after {
+  inset: 6px;
+  border-radius: 7px;
+}
+
+.viewport2d.world-moon .paper {
+  fill: #d5d8de;
+}
+.viewport2d.world-mars .paper {
+  fill: #e8d2c2;
+}
+.viewport2d.world-titan .paper {
+  fill: #d8d0e4;
+}
+
 .header-actions {
   display: flex;
   gap: 6px;
@@ -184,6 +215,7 @@ button.danger:hover {
 
 .cats {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   margin-bottom: 10px;
 }
@@ -238,7 +270,8 @@ button.danger:hover {
 .glyph.banquette::after,
 .glyph.pendant::after,
 .glyph.fridge::after,
-.glyph.desk::after {
+.glyph.desk::after,
+.glyph.module::after {
   content: '';
   position: absolute;
   inset: 8px;

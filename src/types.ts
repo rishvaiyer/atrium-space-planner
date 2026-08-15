@@ -1,10 +1,10 @@
-export type Category = 'restaurant' | 'office' | 'retail'
+export type Category = 'restaurant' | 'office' | 'retail' | 'habitat'
 export type Tool = 'select' | 'measure'
 export type FloorFinish = 'oak' | 'terrazzo' | 'concrete' | 'tile'
 export type BudgetTier = 'budget' | 'standard' | 'premium'
 export type Jurisdiction = 'IBC' | 'NBC' | 'Eurocode'
 export type WallSide = 'n' | 's' | 'e' | 'w'
-export type CostGroup = 'seating' | 'tables' | 'counters' | 'lighting' | 'other'
+export type CostGroup = 'seating' | 'tables' | 'counters' | 'lighting' | 'other' | 'habitat' | 'power' | 'life'
 
 export interface CatalogItem {
   id: string
@@ -16,7 +16,7 @@ export interface CatalogItem {
   w: number
   d: number
   h: number
-  plan: 'chair' | 'stool' | 'rect' | 'round' | 'banquette' | 'bar' | 'pendant' | 'fridge' | 'desk'
+  plan: 'chair' | 'stool' | 'rect' | 'round' | 'banquette' | 'bar' | 'pendant' | 'fridge' | 'desk' | 'module'
   blocksCirculation: boolean
   isSeat: boolean
   seats: number

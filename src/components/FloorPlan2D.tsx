@@ -25,14 +25,15 @@ export function FloorPlan2D() {
   const tier = usePlanner((s) => s.budgetTier)
   const cap = usePlanner((s) => s.budgetCap)
   const jurisdiction = usePlanner((s) => s.jurisdiction)
+  const worldId = usePlanner((s) => s.worldId)
 
   const analysis = useMemo(() => {
     try {
-      return analyzeLayout({ room, items, tier, floor, cap, jurisdiction })
+      return analyzeLayout({ room, items, tier, floor, cap, jurisdiction, worldId })
     } catch {
       return null
     }
-  }, [room, items, tier, floor, cap, jurisdiction])
+  }, [room, items, tier, floor, cap, jurisdiction, worldId])
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState({ x: -1.4, y: -1.5, w: room.width + 2.8, h: room.depth + 3 })
@@ -142,7 +143,7 @@ export function FloorPlan2D() {
 
   return (
     <div
-      className={`viewport2d ${pending ? 'placing' : ''}`}
+      className={`viewport2d world-${worldId} ${pending ? 'placing' : ''}`}
       ref={wrapRef}
       onWheel={onWheel}
       onPointerDown={onPointerDown}
@@ -340,6 +341,21 @@ function PlanItem({
         <>
           <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} fill={fill} />
           <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={0.08} fill="#111318" />
+        </>
+      )}
+      {def.plan === 'module' && (
+        <>
+          <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} rx={0.12} fill={fill} />
+          <rect
+            x={-def.w / 2 + 0.12}
+            y={-def.d / 2 + 0.12}
+            width={def.w - 0.24}
+            height={def.d - 0.24}
+            rx={0.08}
+            fill="none"
+            stroke="#111318"
+            strokeWidth={0.04}
+          />
         </>
       )}
       {def.plan === 'pendant' && (

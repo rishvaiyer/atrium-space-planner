@@ -20,17 +20,18 @@ export function InspectorPanel() {
   const tier = usePlanner((s) => s.budgetTier)
   const cap = usePlanner((s) => s.budgetCap)
   const jurisdiction = usePlanner((s) => s.jurisdiction)
+  const worldId = usePlanner((s) => s.worldId)
 
   const selected = selectedIds.length === 1 ? items.find((i) => i.id === selectedIds[0]) : undefined
   const def = selected ? catalogItem(selected.catalogId) : undefined
 
   const analysis = useMemo(() => {
     try {
-      return analyzeLayout({ room, items, tier, floor, cap, jurisdiction })
+      return analyzeLayout({ room, items, tier, floor, cap, jurisdiction, worldId })
     } catch {
       return null
     }
-  }, [room, items, tier, floor, cap, jurisdiction])
+  }, [room, items, tier, floor, cap, jurisdiction, worldId])
 
   const hourLabel =
     `${Math.floor(time).toString().padStart(2, '0')}:${Math.round((time % 1) * 60)
@@ -121,18 +122,24 @@ export function InspectorPanel() {
       </section>
 
       <section>
-        <div className="panel-kicker">Code & egress</div>
+        <div className="panel-kicker">{worldId === 'earth' ? 'Code & egress' : 'Life support'}</div>
         {analysis ? (
           <>
         <div className="kv">
+          <span>World</span>
+          <b>
+            {analysis.gravityG} g · {analysis.atmosphereKpa.toFixed(1)} kPa · {Math.round(analysis.meanK)} K
+          </b>
           <span>Occupancy</span>
           <b>{analysis.occupancyGroup}</b>
-          <span>Occupant load</span>
+          <span>{worldId === 'earth' ? 'Occupant load' : 'Crew target'}</span>
           <b>{analysis.occupantLoad}</b>
-          <span>Seats / m²</span>
+          <span>{worldId === 'earth' ? 'Seats / m²' : 'Berths'}</span>
           <b>
             {analysis.seats} · {analysis.seatsPerM2.toFixed(2)}
           </b>
+          {worldId === 'earth' && (
+            <>
           <span>Travel</span>
           <b>
             {analysis.maxTravelM.toFixed(1)} / {analysis.travelLimitM} m
@@ -153,6 +160,8 @@ export function InspectorPanel() {
               </button>
             ))}
           </div>
+            </>
+          )}
         </div>
         <ul className="checks">
           {analysis.checks.map((c) => (
