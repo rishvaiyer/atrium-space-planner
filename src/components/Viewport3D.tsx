@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { catalogItem } from '../catalog'
@@ -17,6 +17,21 @@ const FOG_ARGS: [string, number, number] = [BG, 18, 42]
 const HEMI_SKY = '#f2f0ea'
 const HEMI_GROUND = '#6b5c4c'
 const WRAP: CSSProperties = { width: '100%', height: '100%' }
+const GL = {
+  antialias: false,
+  alpha: false,
+  powerPreference: 'high-performance' as const,
+  failIfMajorPerformanceCaveat: false,
+}
+
+function canCreateWebGL(): boolean {
+  try {
+    const canvas = document.createElement('canvas')
+    return Boolean(canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+  } catch {
+    return false
+  }
+}
 
 export function Viewport3D() {
   const time = usePlanner((s) => s.timeOfDay)
@@ -31,6 +46,33 @@ export function Viewport3D() {
   const sun = useMemo(() => sunFromTime(time), [time])
   const mobile = useIsMobile()
   const hemiArgs = useMemo(() => [HEMI_SKY, HEMI_GROUND, sun.hemi] as [string, string, number], [sun.hemi])
+  const [useIso, setUseIso] = useState(() => !canCreateWebGL())
+  const glReady = useRef(false)
+
+  useEffect(() => {
+    if (!canCreateWebGL()) {
+      setUseIso(true)
+      return
+    }
+    const id = window.setTimeout(() => {
+      if (!glReady.current) setUseIso(true)
+    }, 2500)
+    return () => window.clearTimeout(id)
+  }, [])
+
+  if (useIso) {
+    return (
+      <IsoView
+        room={room}
+        items={items}
+        showFurniture={showFurniture}
+        showElectrical={showElectrical}
+        brand={brand}
+        selectedIds={selectedIds}
+        floor={floor}
+      />
+    )
+  }
 
   return (
     <div className="viewport3d">
@@ -40,8 +82,13 @@ export function Viewport3D() {
           style={WRAP}
           shadows={!mobile}
           dpr={1}
+          gl={GL}
           camera={mobile ? CAMERA_MOBILE : CAMERA}
           onPointerMissed={() => usePlanner.getState().select(null)}
+          onCreated={({ gl }) => {
+            glReady.current = true
+            gl.setClearColor(BG, 1)
+          }}
         >
           <LowPower.Provider value={mobile}>
             <color attach="background" args={[BG]} />
@@ -174,6 +221,94 @@ function PlacedMesh({
         </mesh>
       )}
     </group>
+  )
+}
+
+function iso(x: number, z: number, y = 0) {
+  return { x: (x - z) * 0.78, y: (x + z) * 0.4 - y }
+}
+
+function IsoView({
+  room,
+  items,
+  showFurniture,
+  showElectrical,
+  brand,
+  selectedIds,
+  floor,
+}: {
+  room: Room
+  items: PlacedItem[]
+  showFurniture: boolean
+  showElectrical: boolean
+  brand: string
+  selectedIds: string[]
+  floor: FloorFinish
+}) {
+  const floorPts = [
+    iso(0, 0),
+    iso(room.width, 0),
+    iso(room.width, room.depth),
+    iso(0, room.depth),
+  ]
+  const floorFill =
+    floor === 'oak' ? '#b9895a' : floor === 'terrazzo' ? '#c5c0b4' : floor === 'tile' ? '#cfc6b8' : '#9a9a96'
+
+  const xs = floorPts.map((p) => p.x)
+  const ys = floorPts.map((p) => p.y)
+  const pad = 1.4
+  const minX = Math.min(...xs) - pad
+  const minY = Math.min(...ys) - pad
+  const w = Math.max(...xs) - minX + pad
+  const h = Math.max(...ys) - minY + pad + 1.2
+
+  return (
+    <div className="viewport3d iso-view">
+      <div className="view-label">3D · isometric</div>
+      <svg viewBox={`${minX} ${minY} ${w} ${h}`} className="iso-svg">
+        <polygon
+          points={floorPts.map((p) => `${p.x},${p.y}`).join(' ')}
+          fill={floorFill}
+          stroke="#6a5340"
+          strokeWidth={0.04}
+        />
+        {items.map((item) => {
+          const def = catalogItem(item.catalogId)
+          if (!showElectrical && def.costGroup === 'lighting') return null
+          if (!showFurniture && def.costGroup !== 'lighting') return null
+          const a = iso(item.x - def.w / 2, item.z - def.d / 2)
+          const b = iso(item.x + def.w / 2, item.z - def.d / 2)
+          const c = iso(item.x + def.w / 2, item.z + def.d / 2)
+          const d = iso(item.x - def.w / 2, item.z + def.d / 2)
+          const lift = def.h * 0.42
+          const fill = item.finish ?? (def.costGroup === 'lighting' ? '#e8d9a8' : brand)
+          const selected = selectedIds.includes(item.id)
+          return (
+            <g
+              key={item.id}
+              className={selected ? 'iso-item on' : 'iso-item'}
+              onClick={(e) => {
+                e.stopPropagation()
+                usePlanner.getState().select(item.id)
+              }}
+            >
+              <polygon
+                points={`${a.x},${a.y - lift} ${b.x},${b.y - lift} ${c.x},${c.y - lift} ${d.x},${d.y - lift}`}
+                fill={fill}
+                stroke="#2a2620"
+                strokeWidth={0.03}
+                opacity={def.costGroup === 'lighting' ? 0.55 : 0.95}
+              />
+              <polygon
+                points={`${b.x},${b.y} ${c.x},${c.y} ${c.x},${c.y - lift} ${b.x},${b.y - lift}`}
+                fill="#000"
+                opacity={0.18}
+              />
+            </g>
+          )
+        })}
+      </svg>
+    </div>
   )
 }
 

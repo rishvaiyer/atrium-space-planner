@@ -369,6 +369,12 @@ button.danger:hover {
 .plan-svg .north text {
   stroke: none;
   fill: #3a342c;
+  font-size: 0.22px;
+}
+
+.plan-svg .north text {
+  font-size: 0.32px;
+  font-family: 'IBM Plex Mono', monospace;
 }
 
 .plan-svg .egress {
@@ -397,10 +403,22 @@ button.danger:hover {
 
 .viewport3d {
   background: #7f96a3;
+  display: grid;
 }
 
-.viewport3d canvas {
+.viewport3d canvas,
+.iso-svg {
   display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.iso-view {
+  background: #8aa3b0;
+}
+
+.iso-item {
+  cursor: pointer;
 }
 
 .inspector section {
