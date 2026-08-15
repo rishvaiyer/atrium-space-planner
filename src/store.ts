@@ -89,6 +89,8 @@ export interface PlannerState {
   focusMode: boolean
   cameraMode: CameraMode
   viewEpoch: number
+  shotTick: number
+  requestShot: () => void
   select: (id: string | null, additive?: boolean) => void
   selectMany: (ids: string[]) => void
   setTool: (tool: Tool) => void
@@ -198,6 +200,8 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   focusMode: false,
   cameraMode: 'orbit',
   viewEpoch: 0,
+  shotTick: 0,
+  requestShot: () => set((s) => ({ shotTick: s.shotTick + 1 })),
 
   select: (id, additive = false) => {
     set((state) => {

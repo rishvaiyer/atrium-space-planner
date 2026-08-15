@@ -608,6 +608,12 @@ export function RoomMesh({
         <planeGeometry args={[w, d]} />
         <FloorMat kind={floor} />
       </mesh>
+      {showWalls && (
+        <mesh rotation={[Math.PI / 2, 0, 0]} position={[ox + w / 2, h - 0.015, oz + d / 2]}>
+          <planeGeometry args={[w + 0.2, d + 0.2]} />
+          <meshStandardMaterial color="#f3efe8" roughness={0.92} metalness={0} />
+        </mesh>
+      )}
       {showWalls &&
         room.walls.map((wall) => {
           const dir = wallDir(wall)
@@ -618,17 +624,28 @@ export function RoomMesh({
                 const mid = (p.s + p.e) / 2
                 const pos = pointOnWall(wall, mid)
                 return (
-                  <mesh key={`${wall.id}-${p.s}`} position={[pos.x, h / 2, pos.z]} rotation={[0, -angle, 0]} receiveShadow>
-                    <boxGeometry args={[p.e - p.s, h, t]} />
-                    <meshStandardMaterial
-                      map={pbrWall?.map ?? plaster}
-                      normalMap={pbrWall?.normalMap}
-                      roughnessMap={pbrWall?.roughnessMap}
-                      color="#eef3f8"
-                      roughness={pbrWall?.roughness ?? 0.9}
-                      metalness={pbrWall?.metalness ?? 0}
-                    />
-                  </mesh>
+                  <group key={`${wall.id}-${p.s}`}>
+                    <mesh position={[pos.x, h / 2, pos.z]} rotation={[0, -angle, 0]} receiveShadow>
+                      <boxGeometry args={[p.e - p.s, h, t]} />
+                      <meshStandardMaterial
+                        map={pbrWall?.map ?? plaster}
+                        normalMap={pbrWall?.normalMap}
+                        roughnessMap={pbrWall?.roughnessMap}
+                        color="#f4f1ec"
+                        roughness={pbrWall?.roughness ?? 0.9}
+                        metalness={pbrWall?.metalness ?? 0}
+                        envMapIntensity={0.35}
+                      />
+                    </mesh>
+                    <mesh position={[pos.x, 0.05, pos.z]} rotation={[0, -angle, 0]}>
+                      <boxGeometry args={[p.e - p.s, 0.1, t + 0.03]} />
+                      <meshStandardMaterial color="#d9d2c8" roughness={0.7} />
+                    </mesh>
+                    <mesh position={[pos.x, h - 0.04, pos.z]} rotation={[0, -angle, 0]}>
+                      <boxGeometry args={[p.e - p.s, 0.06, t + 0.02]} />
+                      <meshStandardMaterial color="#ece7df" roughness={0.8} />
+                    </mesh>
+                  </group>
                 )
               })}
             </group>
@@ -642,19 +659,30 @@ export function RoomMesh({
           const angle = Math.atan2(dir.z, dir.x)
           const pos = pointOnWall(wall, win.offset + win.width / 2)
           const wh = win.head - win.sill
+          const n = { x: -dir.z, z: dir.x }
+          const toCenterX = ox + w / 2 - pos.x
+          const toCenterZ = oz + d / 2 - pos.z
+          const inward = n.x * toCenterX + n.z * toCenterZ > 0 ? 1 : -1
           return (
-            <mesh key={win.id} position={[pos.x, win.sill + wh / 2, pos.z]} rotation={[0, -angle, 0]}>
-              <boxGeometry args={[win.width, wh, 0.04]} />
-              <meshStandardMaterial
-                color="#b9d4e4"
-                transparent
-                opacity={0.28}
-                metalness={0.1}
-                roughness={0.05}
-                emissive="#dcefff"
-                emissiveIntensity={0.15}
-              />
-            </mesh>
+            <group key={win.id} position={[pos.x, win.sill + wh / 2, pos.z]} rotation={[0, -angle, 0]}>
+              <mesh>
+                <boxGeometry args={[win.width, wh, 0.03]} />
+                <meshStandardMaterial
+                  color="#d7eaf8"
+                  transparent
+                  opacity={0.22}
+                  metalness={0.35}
+                  roughness={0.04}
+                  envMapIntensity={1.4}
+                  emissive="#fff6e8"
+                  emissiveIntensity={0.55}
+                />
+              </mesh>
+              <mesh position={[0, 0, -inward * 0.08]}>
+                <planeGeometry args={[win.width * 0.92, wh * 0.92]} />
+                <meshBasicMaterial color="#f0d9b0" />
+              </mesh>
+            </group>
           )
         })}
       {showWalls &&
@@ -665,7 +693,11 @@ export function RoomMesh({
             <group key={door.id} position={[hinge.x, 0, hinge.z]} rotation={[0, hinge.angle + 1.15, 0]}>
               <mesh position={[door.width / 2, 1.05, 0]} castShadow>
                 <boxGeometry args={[door.width, 2.1, 0.05]} />
-                <meshStandardMaterial color="#6b4428" roughness={0.55} />
+                <meshStandardMaterial color="#6b4428" roughness={0.48} metalness={0.04} envMapIntensity={0.4} />
+              </mesh>
+              <mesh position={[door.width - 0.08, 1.02, 0.04]}>
+                <sphereGeometry args={[0.025, 12, 10]} />
+                <meshStandardMaterial color="#c4a574" metalness={0.85} roughness={0.22} />
               </mesh>
             </group>
           )
@@ -684,7 +716,8 @@ function FloorMat({ kind }: { kind: FloorFinish }) {
       normalMap={pbr?.normalMap}
       roughnessMap={pbr?.roughnessMap}
       roughness={pbr?.roughness ?? rough}
-      metalness={pbr?.metalness ?? 0.02}
+      metalness={kind === 'marble' ? 0.12 : (pbr?.metalness ?? 0.04)}
+      envMapIntensity={kind === 'marble' || kind === 'terrazzo' ? 0.85 : 0.4}
     />
   )
 }

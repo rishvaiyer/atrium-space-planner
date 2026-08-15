@@ -1,9 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Canvas, useThree } from '@react-three/fiber'
-import { ContactShadows, OrbitControls, Stars } from '@react-three/drei'
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { ContactShadows, Environment, Lightformer, OrbitControls, Stars } from '@react-three/drei'
+import * as THREE from 'three'
 import { catalogItem } from '../catalog'
 import { collidingItemIds, itemCollides } from '../collision'
-import { itemDims } from '../geometry'
+import { formatMoney, itemDims } from '../geometry'
 import { FurnitureMesh, RoomMesh } from '../scene/Furniture'
 import { InstancedCatalog } from '../scene/InstancedFurniture'
 import { partitionInstances } from '../scene/instanceRecipes'
@@ -48,6 +49,7 @@ export function Viewport3D() {
   const selectedIds = usePlanner((s) => s.selectedIds)
   const worldId = usePlanner((s) => s.worldId)
   const cameraMode = usePlanner((s) => s.cameraMode)
+  const present = usePlanner((s) => s.focusMode)
   const world = worldOf(worldId)
   const sun = useMemo(() => sunFromTime(time), [time])
   const mobile = useIsMobile()
@@ -56,8 +58,13 @@ export function Viewport3D() {
     [world.hemiSky, world.hemiGround, sun.hemi],
   )
   const fogArgs = useMemo(
-    () => [world.sky, world.id === 'earth' ? 16 : 22, world.fogFar] as [string, number, number],
-    [world.sky, world.fogFar, world.id],
+    () =>
+      [worldId === 'earth' ? '#c5cdd4' : world.sky, world.id === 'earth' ? 24 : 22, world.id === 'earth' ? 48 : world.fogFar] as [
+        string,
+        number,
+        number,
+      ],
+    [world.sky, world.fogFar, world.id, worldId],
   )
   const [useIso, setUseIso] = useState(() => !canCreateWebGL())
   const glReady = useRef(false)
@@ -89,23 +96,26 @@ export function Viewport3D() {
   }
 
   return (
-    <div className="viewport3d">
+    <div className={`viewport3d ${present ? 'cinema' : ''}`}>
       <div className="view-label">Model</div>
+      {present && <PresentHud />}
       <GLBoundary>
         <Canvas
           style={WRAP}
           shadows={!mobile && worldId === 'earth'}
-          dpr={1}
+          dpr={mobile ? 1 : present ? [1, 1.5] : 1}
           gl={GL}
           camera={worldId === 'earth' ? (mobile ? CAMERA_MOBILE : CAMERA) : CAMERA_SPACE}
           onPointerMissed={() => usePlanner.getState().select(null)}
           onCreated={({ gl }) => {
             glReady.current = true
-            gl.setClearColor(world.sky, 1)
+            gl.toneMapping = THREE.ACESFilmicToneMapping
+            gl.toneMappingExposure = 1.08
+            gl.setClearColor(worldId === 'earth' ? '#c5cdd4' : world.sky, 1)
           }}
         >
           <LowPower.Provider value={mobile}>
-            <color attach="background" args={[world.sky]} />
+            <color attach="background" args={[worldId === 'earth' ? '#c5cdd4' : world.sky]} />
             <fog attach="fog" args={fogArgs} />
             <hemisphereLight args={hemiArgs} />
             <ambientLight intensity={mobile ? sun.ambient + 0.22 : sun.ambient} />
@@ -123,6 +133,11 @@ export function Viewport3D() {
               shadow-camera-top={12}
               shadow-camera-bottom={-12}
             />
+            {!mobile && worldId === 'earth' && (
+              <Suspense fallback={null}>
+                <InteriorEnv warm={time >= 16 || time < 8} />
+              </Suspense>
+            )}
             {worldId !== 'earth' && <Stars radius={60} depth={30} count={mobile ? 400 : 900} factor={3} fade speed={0} />}
             {worldId !== 'earth' && <Planet world={world} />}
             <Scene
@@ -137,9 +152,14 @@ export function Viewport3D() {
               selectedIds={selectedIds}
             />
             <CameraRig mode={cameraMode} room={room} />
+            <EyeWalk enabled={cameraMode === 'eye' && worldId === 'earth'} room={room} />
+            <ShotTaker />
             <OrbitControls
               makeDefault
-              enableDamping={false}
+              enableDamping
+              dampingFactor={0.08}
+              autoRotate={present && cameraMode === 'orbit'}
+              autoRotateSpeed={0.35}
               maxPolarAngle={cameraMode === 'eye' ? Math.PI / 2 - 0.02 : Math.PI / 2 - 0.04}
               minDistance={cameraMode === 'eye' ? 0.4 : 3}
               maxDistance={worldId === 'earth' ? 28 : 48}
@@ -178,6 +198,121 @@ function CameraRig({ mode, room }: { mode: CameraMode; room: Room }) {
     orbit?.target?.set(cx, ty, cz)
   }, [mode, room.width, room.depth, room.originX, room.originZ, camera, controls])
   return null
+}
+
+function InteriorEnv({ warm }: { warm: boolean }) {
+  return (
+    <Environment resolution={256} environmentIntensity={0.55}>
+      <Lightformer intensity={warm ? 3.2 : 2.4} color={warm ? '#ffd7a8' : '#f4f7fb'} position={[0, 4.2, 0]} scale={[12, 1.2, 1]} />
+      <Lightformer intensity={1.8} color={warm ? '#ffb070' : '#d7e8ff'} position={[6, 2.4, -2]} scale={[4, 5, 1]} />
+      <Lightformer intensity={0.9} color="#c9d6e4" position={[-5, 1.6, 4]} scale={[5, 3, 1]} />
+      <Lightformer intensity={0.45} color="#ffffff" position={[0, 0.4, 6]} scale={[10, 2, 1]} />
+    </Environment>
+  )
+}
+
+function EyeWalk({ enabled, room }: { enabled: boolean; room: Room }) {
+  const { camera, controls } = useThree()
+  const held = useRef({ w: false, a: false, s: false, d: false })
+  useEffect(() => {
+    if (!enabled) return
+    const setKey = (e: KeyboardEvent, down: boolean) => {
+      const el = e.target as HTMLElement
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return
+      const k = e.key.toLowerCase()
+      if (k === 'w' || k === 'a' || k === 's' || k === 'd') {
+        held.current[k] = down
+        e.preventDefault()
+      }
+    }
+    const down = (e: KeyboardEvent) => setKey(e, true)
+    const up = (e: KeyboardEvent) => setKey(e, false)
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    return () => {
+      window.removeEventListener('keydown', down)
+      window.removeEventListener('keyup', up)
+      held.current = { w: false, a: false, s: false, d: false }
+    }
+  }, [enabled])
+  useFrame((_, dt) => {
+    if (!enabled) return
+    const k = held.current
+    if (!k.w && !k.a && !k.s && !k.d) return
+    const speed = 2.4 * dt
+    const fwd = new THREE.Vector3()
+    camera.getWorldDirection(fwd)
+    fwd.y = 0
+    if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1)
+    else fwd.normalize()
+    const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize()
+    const delta = new THREE.Vector3()
+    if (k.w) delta.add(fwd)
+    if (k.s) delta.sub(fwd)
+    if (k.d) delta.add(right)
+    if (k.a) delta.sub(right)
+    if (delta.lengthSq() < 1e-8) return
+    delta.normalize().multiplyScalar(speed)
+    const minX = room.originX + 0.35
+    const maxX = room.originX + room.width - 0.35
+    const minZ = room.originZ + 0.35
+    const maxZ = room.originZ + room.depth - 0.35
+    camera.position.x = THREE.MathUtils.clamp(camera.position.x + delta.x, minX, maxX)
+    camera.position.z = THREE.MathUtils.clamp(camera.position.z + delta.z, minZ, maxZ)
+    camera.position.y = 1.55
+    const orbit = controls as { target?: THREE.Vector3 } | null
+    if (orbit?.target) {
+      orbit.target.x = THREE.MathUtils.clamp(orbit.target.x + delta.x, minX, maxX)
+      orbit.target.z = THREE.MathUtils.clamp(orbit.target.z + delta.z, minZ, maxZ)
+      orbit.target.y = 1.5
+    }
+  })
+  return null
+}
+
+function ShotTaker() {
+  const tick = usePlanner((s) => s.shotTick)
+  const name = usePlanner((s) => s.projectName)
+  const { gl, scene, camera } = useThree()
+  const seen = useRef(0)
+  useLayoutEffect(() => {
+    if (!tick || tick === seen.current) return
+    seen.current = tick
+    gl.render(scene, camera)
+    const a = document.createElement('a')
+    a.href = gl.domElement.toDataURL('image/png')
+    a.download = `${name.replace(/\s+/g, '-').toLowerCase()}-view.png`
+    a.click()
+  }, [tick, gl, scene, camera, name])
+  return null
+}
+
+function PresentHud() {
+  const name = usePlanner((s) => s.projectName)
+  const items = usePlanner((s) => s.items)
+  const cap = usePlanner((s) => s.budgetCap)
+  const stats = useMemo(() => {
+    let seats = 0
+    let total = 0
+    for (const it of items) {
+      const def = catalogItem(it.catalogId)
+      seats += def.seats
+      total += def.price
+    }
+    return { seats, total }
+  }, [items])
+  return (
+    <div className="present-hud">
+      <div>
+        <div className="present-kicker">ATRIUM</div>
+        <div className="present-name">{name}</div>
+      </div>
+      <div className="present-meta">
+        {stats.seats} seats · {formatMoney(stats.total)}
+        {cap ? ` / ${formatMoney(cap)}` : ''}
+      </div>
+    </div>
+  )
 }
 
 function Scene({
@@ -457,11 +592,12 @@ function sunFromTime(hour: number) {
   const ang = t * Math.PI
   const elevation = Math.max(0.05, Math.sin(ang))
   const dusk = hour < 7.5 || hour > 17.5
+  const golden = hour >= 16 && hour <= 19.2
   return {
     position: [Math.cos(ang) * 14, elevation * 16 + 2, Math.sin(ang) * 10 - 4] as [number, number, number],
-    intensity: dusk ? 0.35 + elevation * 0.8 : 1.1 + elevation * 1.4,
-    color: dusk ? '#b7c8ff' : '#e8f1ff',
-    ambient: dusk ? 0.18 : 0.32,
-    hemi: dusk ? 0.35 : 0.55,
+    intensity: dusk ? 0.55 + elevation * 0.9 : 1.05 + elevation * 1.25,
+    color: golden ? '#ffc089' : dusk ? '#b7c8ff' : '#f3f6ff',
+    ambient: dusk ? 0.24 : 0.3,
+    hemi: dusk ? 0.42 : 0.52,
   }
 }

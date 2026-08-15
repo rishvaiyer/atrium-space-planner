@@ -151,7 +151,7 @@ export function Header({
             <button
               type="button"
               className={focusMode ? 'on' : ''}
-              {...tip('Hide side panels for presenting')}
+              {...tip('Hide chrome and orbit the room for a client pitch', '.')}
               onClick={() => usePlanner.getState().setFlag('focusMode', !focusMode)}
             >
               Present

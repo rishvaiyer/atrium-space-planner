@@ -16,6 +16,7 @@ export function CommandPalette({ onClose, onOpenTemplates, onHelp }: { onClose: 
       { id: 'templates', label: 'New project from template…', run: onOpenTemplates },
       { id: 'help', label: 'Help', run: () => onHelp?.() },
       { id: 'present', label: 'Presentation mode', run: () => usePlanner.getState().setFlag('focusMode', !usePlanner.getState().focusMode) },
+      { id: 'shot', label: 'Download 3D screenshot', run: () => usePlanner.getState().requestShot() },
       { id: 'library', label: 'Toggle library', run: () => usePlanner.getState().setFlag('showLibrary', !usePlanner.getState().showLibrary) },
       { id: 'spec', label: 'Toggle spec', run: () => usePlanner.getState().setFlag('showSpec', !usePlanner.getState().showSpec) },
       {

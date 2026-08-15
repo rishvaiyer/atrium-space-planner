@@ -152,6 +152,9 @@ export default function App() {
         return
       }
       if (typing) return
+      if (state.cameraMode === 'eye' && !meta && ['w', 'a', 's', 'd', 'W', 'A', 'S', 'D'].includes(e.key)) {
+        return
+      }
       if (e.key === '?' || (e.shiftKey && e.key === '/')) {
         e.preventDefault()
         setHelp((v) => !v)
@@ -330,7 +333,7 @@ function ViewCameras() {
             id === 'orbit'
               ? 'Orbit camera — drag to look around'
               : id === 'eye'
-                ? 'Eye-level camera, standing height'
+                ? 'Eye-level walkthrough. WASD to walk, drag to look'
                 : 'Top-down camera',
           )}
           onClick={() => usePlanner.getState().setCameraMode(id)}
@@ -338,6 +341,13 @@ function ViewCameras() {
           {id === 'orbit' ? 'Orbit' : id === 'eye' ? 'Eye' : 'Top'}
         </button>
       ))}
+      <button
+        type="button"
+        {...tip('Download a PNG of this 3D view')}
+        onClick={() => usePlanner.getState().requestShot()}
+      >
+        Shot
+      </button>
     </div>
   )
 }

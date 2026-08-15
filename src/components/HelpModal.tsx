@@ -48,6 +48,14 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
             </p>
           </section>
           <section>
+            <h3>Present the room</h3>
+            <p>
+              <strong>Present</strong> (or <strong>.</strong>) hides the library and spec, letterboxes the 3D view, and
+              slowly orbits. <strong>Shot</strong> downloads a PNG of the model. <strong>Eye</strong> is a walkthrough —
+              <strong>WASD</strong> to walk, drag to look. Esc leaves present.
+            </p>
+          </section>
+          <section>
             <h3>Files</h3>
             <p>
               <strong>New project</strong> opens templates. <strong>Open file</strong> loads an ATRIUM or AI design JSON.{' '}
@@ -59,7 +67,7 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
             <h3>Shortcuts</h3>
             <p>
               ⌘K commands · ⌘O open file · ⌘S save · ⌘Z undo · ⌘D duplicate · R rotate · F fit · V select · H pan · M
-              measure · ? this help · Esc cancel.
+              measure · . present · ? this help · Esc cancel.
             </p>
           </section>
         </div>
