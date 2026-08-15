@@ -8,17 +8,18 @@ import { TEMPLATES } from '../templates'
 import { usePlanner } from '../store'
 import { toggleTheme } from '../theme'
 
-export function CommandPalette({ onClose, onOpenTemplates }: { onClose: () => void; onOpenTemplates: () => void }) {
+export function CommandPalette({ onClose, onOpenTemplates, onHelp }: { onClose: () => void; onOpenTemplates: () => void; onHelp?: () => void }) {
   const [q, setQ] = useState('')
   const commands = useMemo(
     () => [
-      { id: 'templates', label: 'New from template…', run: onOpenTemplates },
+      { id: 'templates', label: 'New project from template…', run: onOpenTemplates },
+      { id: 'help', label: 'Help', run: () => onHelp?.() },
       { id: 'present', label: 'Presentation mode', run: () => usePlanner.getState().setFlag('focusMode', !usePlanner.getState().focusMode) },
       { id: 'library', label: 'Toggle library', run: () => usePlanner.getState().setFlag('showLibrary', !usePlanner.getState().showLibrary) },
       { id: 'spec', label: 'Toggle spec', run: () => usePlanner.getState().setFlag('showSpec', !usePlanner.getState().showSpec) },
       {
         id: 'board',
-        label: 'Open print board (PDF)',
+        label: 'Open print board',
         run: () => {
           const s = usePlanner.getState()
           openBoard({
@@ -47,7 +48,7 @@ export function CommandPalette({ onClose, onOpenTemplates }: { onClose: () => vo
       },
       {
         id: 'place',
-        label: 'Export Thirdwurld place JSON',
+        label: 'Export place JSON',
         run: () => {
           const s = usePlanner.getState()
           downloadJson(
@@ -70,7 +71,7 @@ export function CommandPalette({ onClose, onOpenTemplates }: { onClose: () => vo
         run: () => usePlanner.getState().loadTemplate(t.id),
       })),
     ],
-    [onOpenTemplates],
+    [onOpenTemplates, onHelp],
   )
   const filtered = commands.filter((c) => c.label.toLowerCase().includes(q.toLowerCase()))
 

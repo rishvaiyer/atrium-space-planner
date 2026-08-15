@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { catalogItem } from './catalog'
 import { layoutForWorld, ROOM } from './defaultLayout'
 import { clamp, snapTo, uid } from './geometry'
 import type {
@@ -232,12 +233,15 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   placeItem: (catalogId, x, z) => {
     const state = get()
     const snap = state.snapOn ? state.snap : 0
+    const def = catalogItem(catalogId)
+    const remote = def.glbUrl && !def.glbUrl.startsWith('blob:') ? def.glbUrl : undefined
     const item: PlacedItem = {
       id: uid(),
       catalogId,
       x: snapTo(x, snap),
       z: snapTo(z, snap),
       rotation: 0,
+      glbUrl: remote,
     }
     state.commitHistory()
     set({

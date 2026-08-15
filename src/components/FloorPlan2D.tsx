@@ -565,8 +565,25 @@ function PlanItem({
       )}
       {def.plan === 'stool' && <circle r={w / 2} fill={fill} />}
       {def.plan === 'round' && <circle r={w / 2} fill={fill} />}
-      {def.plan === 'rect' && (
+      {def.plan === 'rect' && item.catalogId !== 'piano' && item.catalogId !== 'grand-piano' && (
         <rect x={-w / 2} y={-d / 2} width={w} height={d} rx={0.02} fill={fill} />
+      )}
+      {(item.catalogId === 'piano' || item.catalogId === 'grand-piano') && (
+        <>
+          <rect x={-w / 2} y={-d / 2} width={w} height={d} rx={0.03} fill="#1a1410" />
+          <rect x={-w / 2 + 0.06} y={d / 2 - 0.16} width={w - 0.12} height={0.12} fill="#f4f1ea" />
+          {Array.from({ length: 8 }, (_, i) => (
+            <line
+              key={i}
+              x1={-w / 2 + 0.08 + (i * (w - 0.16)) / 7}
+              y1={d / 2 - 0.16}
+              x2={-w / 2 + 0.08 + (i * (w - 0.16)) / 7}
+              y2={d / 2 - 0.04}
+              stroke="#111"
+              strokeWidth={0.012}
+            />
+          ))}
+        </>
       )}
       {def.plan === 'desk' && (
         <rect x={-w / 2} y={-d / 2} width={w} height={d} rx={0.02} fill="#6b7380" />

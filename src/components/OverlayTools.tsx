@@ -2,16 +2,16 @@ import { usePlanner } from '../store'
 import type { Tool } from '../types'
 import { Icon } from './Icon'
 
-const TOOLS: { id: Tool; label: string; key: string; icon: 'select' | 'pan' | 'measure' | 'wall' | 'door' | 'window' | 'paint' | 'stamp' | 'note' }[] = [
-  { id: 'select', label: 'Select', key: 'V', icon: 'select' },
-  { id: 'pan', label: 'Pan', key: 'H', icon: 'pan' },
-  { id: 'wall', label: 'Wall', key: 'W', icon: 'wall' },
-  { id: 'door', label: 'Door', key: 'D', icon: 'door' },
-  { id: 'window', label: 'Window', key: 'G', icon: 'window' },
-  { id: 'measure', label: 'Measure', key: 'M', icon: 'measure' },
-  { id: 'paint', label: 'Paint', key: 'C', icon: 'paint' },
-  { id: 'stamp', label: 'Stamp', key: 'T', icon: 'stamp' },
-  { id: 'note', label: 'Note', key: 'N', icon: 'note' },
+const TOOLS: { id: Tool; label: string; key: string; hint: string; icon: 'select' | 'pan' | 'measure' | 'wall' | 'door' | 'window' | 'paint' | 'stamp' | 'note' }[] = [
+  { id: 'select', label: 'Select', key: 'V', hint: 'Select and move fixtures', icon: 'select' },
+  { id: 'pan', label: 'Pan', key: 'H', hint: 'Pan the plan', icon: 'pan' },
+  { id: 'wall', label: 'Wall', key: 'W', hint: 'Draw a wall: click two points', icon: 'wall' },
+  { id: 'door', label: 'Door', key: 'D', hint: 'Place a door on a wall', icon: 'door' },
+  { id: 'window', label: 'Window', key: 'G', hint: 'Place a window on a wall', icon: 'window' },
+  { id: 'measure', label: 'Measure', key: 'M', hint: 'Measure distance between two clicks', icon: 'measure' },
+  { id: 'paint', label: 'Paint', key: 'C', hint: 'Click a fixture to apply the brand color', icon: 'paint' },
+  { id: 'stamp', label: 'Stamp', key: 'T', hint: 'Click to copy the selected fixture', icon: 'stamp' },
+  { id: 'note', label: 'Note', key: 'N', hint: 'Click the plan to add a note', icon: 'note' },
 ]
 
 export function OverlayTools({ compact = false }: { compact?: boolean }) {
@@ -25,7 +25,7 @@ export function OverlayTools({ compact = false }: { compact?: boolean }) {
           key={t.id}
           type="button"
           className={tool === t.id ? 'on' : ''}
-          title={`${t.label} (${t.key})`}
+          title={`${t.hint} (${t.key})`}
           aria-label={t.label}
           onClick={() => usePlanner.getState().setTool(t.id)}
         >
@@ -33,13 +33,13 @@ export function OverlayTools({ compact = false }: { compact?: boolean }) {
         </button>
       ))}
       <span className="sep" />
-      <button type="button" title="Rotate (R)" aria-label="Rotate" onClick={() => usePlanner.getState().rotateSelected(Math.PI / 2)}>
+      <button type="button" title="Rotate selected 90° (R)" aria-label="Rotate selected" onClick={() => usePlanner.getState().rotateSelected(Math.PI / 2)}>
         <Icon name="rotate" />
       </button>
-      <button type="button" title="Duplicate (⌘D)" aria-label="Duplicate" onClick={() => usePlanner.getState().duplicateSelected()}>
+      <button type="button" title="Duplicate selected (⌘D)" aria-label="Duplicate selected" onClick={() => usePlanner.getState().duplicateSelected()}>
         <Icon name="copy" />
       </button>
-      <button type="button" className="danger" title="Delete" aria-label="Delete" onClick={() => usePlanner.getState().deleteSelected()}>
+      <button type="button" className="danger" title="Delete selected" aria-label="Delete selected" onClick={() => usePlanner.getState().deleteSelected()}>
         <Icon name="trash" />
       </button>
     </div>

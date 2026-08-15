@@ -153,6 +153,8 @@ button.danger:hover { color: var(--bad); border-color: var(--bad); }
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .header-actions > button { font-size: 12px; }
@@ -557,6 +559,48 @@ input[type='range'] { width: 100%; accent-color: var(--accent); }
 }
 
 .palette { width: min(480px, 100%); }
+
+.help-card {
+  width: min(560px, 100%);
+  max-height: min(88vh, 720px);
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 8px 8px 20px;
+}
+.help-card .panel-head { padding: 12px 12px 0; }
+.help-body { padding: 0 16px 8px; }
+.help-body h3 { font-size: 13px; margin: 16px 0 6px; }
+.help-body p { font-size: 13px; line-height: 1.5; color: var(--muted); margin: 0; }
+.help-body code { font-size: 12px; }
+
+.file-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.file-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font-size: 12px;
+  cursor: pointer;
+}
+.file-btn.wide { width: 100%; margin: 8px 0 12px; }
+.file-btn:disabled { opacity: 0.55; }
+.glyph-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--glyph);
+}
+.models-h { font-size: 12px; margin: 16px 0 8px; }
+.hint.bad { color: #b42318; }
+.lib-row { display: flex; align-items: center; gap: 4px; }
+.lib-row .catalog-row { flex: 1; }
 .palette input {
   width: 100%;
   border: 0;

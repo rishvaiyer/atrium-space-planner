@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CATALOG, worldUse } from '../catalog'
+import { addPolyforkAsset, hydrateGlbLibrary, importGlbFiles, listGlb, removeGlb, type GlbEntry } from '../glbLibrary'
+import { glbUrlFor, polyforkKey, searchPolyfork, setPolyforkKey, type PolyforkAsset } from '../polyfork'
 import { usePlanner } from '../store'
 import type { Category } from '../types'
 
@@ -18,6 +20,13 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
   const setCategory = usePlanner((s) => s.setCategory)
   const setPending = usePlanner((s) => s.setPending)
   const [q, setQ] = useState('')
+  const [tab, setTab] = useState<'stock' | 'models'>('stock')
+  const [library, setLibrary] = useState<GlbEntry[]>([])
+  const [pfQ, setPfQ] = useState('')
+  const [pfKey, setPfKey] = useState(() => polyforkKey())
+  const [pfHits, setPfHits] = useState<PolyforkAsset[]>([])
+  const [pfErr, setPfErr] = useState('')
+  const [pfBusy, setPfBusy] = useState(false)
   const active = CATS.some((c) => c.id === category) ? category : 'restaurant'
   const needle = q.trim().toLowerCase()
   const items = CATALOG.filter((i) => i.category === active).filter((i) => {
@@ -30,6 +39,51 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
     )
   })
 
+  useEffect(() => {
+    void hydrateGlbLibrary().then(setLibrary)
+  }, [])
+
+  const pick = (id: string) => {
+    const next = pending === id ? null : id
+    setPending(next)
+    if (next) onPick?.()
+  }
+
+  const onFiles = async (list: FileList | null) => {
+    if (!list?.length) return
+    const next = await importGlbFiles([...list])
+    setLibrary(next)
+  }
+
+  const runPolyfork = async () => {
+    setPfBusy(true)
+    setPfErr('')
+    setPolyforkKey(pfKey.trim())
+    try {
+      setPfHits(await searchPolyfork(pfQ))
+    } catch (e) {
+      setPfErr(e instanceof Error ? e.message : 'Polyfork search failed')
+      setPfHits([])
+    } finally {
+      setPfBusy(false)
+    }
+  }
+
+  const addPf = (asset: PolyforkAsset) => {
+    const size = asset.size_m
+    const next = addPolyforkAsset({
+      id: asset.id,
+      title: asset.title,
+      glbUrl: glbUrlFor(asset),
+      w: size?.x || 1.2,
+      d: size?.z || size?.x || 1.2,
+      h: size?.y || 1.2,
+      thumb: asset.thumbnail,
+    })
+    setLibrary(next)
+    pick(`pf:${asset.id}`)
+  }
+
   return (
     <aside className="panel catalog">
       <header className="panel-head">
@@ -39,42 +93,139 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
         </div>
       </header>
       <div className="cats">
-        {CATS.map((c) => (
-          <button key={c.id} type="button" className={c.id === active ? 'on' : ''} onClick={() => setCategory(c.id)}>
-            {c.label}
-          </button>
-        ))}
+        <button type="button" className={tab === 'stock' ? 'on' : ''} onClick={() => setTab('stock')}>
+          Catalog
+        </button>
+        <button type="button" className={tab === 'models' ? 'on' : ''} onClick={() => setTab('models')}>
+          Models
+        </button>
       </div>
-      <p className="hint">{pending ? 'Tap the plan to drop it' : 'Pick a piece, then tap the plan to place'}</p>
-      <label className="field">
-        Search
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="sofa, booth, piano…" aria-label="Search fixtures" />
-      </label>
-      <ul className="catalog-list">
-        {items.map((item) => (
-          <li key={item.id}>
-            <button
-              type="button"
-              className={`catalog-row ${pending === item.id ? 'on' : ''}`}
-              onClick={() => {
-                const next = pending === item.id ? null : item.id
-                setPending(next)
-                if (next) onPick?.()
-              }}
-            >
-              <span className={`glyph ${item.plan}`} />
-              <span className="meta">
-                <strong>{item.name}</strong>
-                <em>
-                  {item.sku}
-                  {worldUse(item) === 'sit' ? ` · sit ${item.seats}` : worldUse(item) === 'sleep' ? ' · sleep' : ''}
-                </em>
-              </span>
-              <span className="price">${item.price.toLocaleString()}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      {tab === 'stock' ? (
+        <>
+          <div className="cats">
+            {CATS.map((c) => (
+              <button key={c.id} type="button" className={c.id === active ? 'on' : ''} onClick={() => setCategory(c.id)}>
+                {c.label}
+              </button>
+            ))}
+          </div>
+          <p className="hint">{pending ? 'Tap the 2D plan or 3D floor to drop it' : 'Pick a piece, then tap the plan to place'}</p>
+          <label className="field">
+            Search
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="sofa, booth, piano…" aria-label="Search fixtures" />
+          </label>
+          <ul className="catalog-list">
+            {items.map((item) => (
+              <li key={item.id}>
+                <button type="button" className={`catalog-row ${pending === item.id ? 'on' : ''}`} onClick={() => pick(item.id)}>
+                  <span className={`glyph ${item.plan}`} />
+                  <span className="meta">
+                    <strong>{item.name}</strong>
+                    <em>
+                      {item.sku}
+                      {worldUse(item) === 'sit' ? ` · sit ${item.seats}` : worldUse(item) === 'sleep' ? ' · sleep' : ''}
+                    </em>
+                  </span>
+                  <span className="price">${item.price.toLocaleString()}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <div className="models-pane">
+          <p className="hint">
+            Import GLB files from a folder on your computer, or pull props from Polyfork. Then tap the plan to place.
+          </p>
+          <div className="file-row">
+            <label className="file-btn">
+              Import GLB files
+              <input
+                type="file"
+                accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
+                multiple
+                hidden
+                onChange={(e) => {
+                  void onFiles(e.target.files)
+                  e.target.value = ''
+                }}
+              />
+            </label>
+            <label className="file-btn">
+              Import folder
+              <input
+                type="file"
+                multiple
+                hidden
+                // @ts-expect-error Chromium folder picker
+                webkitdirectory=""
+                onChange={(e) => {
+                  void onFiles(e.target.files)
+                  e.target.value = ''
+                }}
+              />
+            </label>
+          </div>
+          {library.length > 0 && (
+            <ul className="catalog-list">
+              {library.map((e) => (
+                <li key={e.id} className="lib-row">
+                  <button type="button" className={`catalog-row ${pending === e.id ? 'on' : ''}`} onClick={() => pick(e.id)}>
+                    {e.thumb ? <img className="glyph-img" src={e.thumb} alt="" /> : <span className="glyph rect" />}
+                    <span className="meta">
+                      <strong>{e.name}</strong>
+                      <em>{e.source === 'polyfork' ? 'Polyfork' : 'Local GLB'}</em>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    title="Remove from library"
+                    onClick={() => {
+                      removeGlb(e.id)
+                      setLibrary(listGlb())
+                    }}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <h3 className="models-h">Polyfork library</h3>
+          <label className="field">
+            API token (optional, from polyfork.dev/account)
+            <input
+              type="password"
+              value={pfKey}
+              onChange={(e) => setPfKey(e.target.value)}
+              placeholder="Bearer token"
+              autoComplete="off"
+            />
+          </label>
+          <label className="field">
+            Search props
+            <input value={pfQ} onChange={(e) => setPfQ(e.target.value)} placeholder="chair, lamp, sofa…" onKeyDown={(e) => e.key === 'Enter' && void runPolyfork()} />
+          </label>
+          <button type="button" className="file-btn wide" disabled={pfBusy} onClick={() => void runPolyfork()}>
+            {pfBusy ? 'Searching…' : 'Search Polyfork'}
+          </button>
+          {pfErr && <p className="hint bad">{pfErr}. You can still import local GLB files.</p>}
+          <ul className="catalog-list">
+            {pfHits.map((a) => (
+              <li key={a.id}>
+                <button type="button" className="catalog-row" onClick={() => addPf(a)}>
+                  {a.thumbnail ? <img className="glyph-img" src={a.thumbnail} alt="" /> : <span className="glyph rect" />}
+                  <span className="meta">
+                    <strong>{a.title}</strong>
+                    <em>{a.free ? 'Free' : 'Pro'} · tap to add & place</em>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </aside>
   )
 }

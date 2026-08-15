@@ -38,6 +38,8 @@ export interface CatalogItem {
   sitHeight?: number
   tags?: string[]
   use?: WorldUse
+  /** Remote or blob URL for a GLB/GLTF mesh. */
+  glbUrl?: string
 }
 
 export interface PlacedItem {
@@ -52,6 +54,7 @@ export interface PlacedItem {
   h?: number
   texture?: string
   extra?: string
+  glbUrl?: string
 }
 
 export interface WallSeg {

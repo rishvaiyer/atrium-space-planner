@@ -5,9 +5,11 @@ import { CommandPalette } from './components/CommandPalette'
 import { FloorPlan2D } from './components/FloorPlan2D'
 import { GLBoundary } from './components/GLBoundary'
 import { Header } from './components/Header'
+import { HelpModal } from './components/HelpModal'
 import { InspectorPanel } from './components/InspectorPanel'
 import { OverlayTools } from './components/OverlayTools'
 import { TemplateGallery } from './components/TemplateGallery'
+import { hydrateGlbLibrary } from './glbLibrary'
 import { useIsMobile } from './media'
 import { PROJECT_KEY, readProjectFile } from './project'
 import { readOpenFile } from './design'
@@ -29,7 +31,12 @@ export default function App() {
   const [allow3d, setAllow3d] = useState(false)
   const [palette, setPalette] = useState(false)
   const [templates, setTemplates] = useState(false)
+  const [help, setHelp] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    void hydrateGlbLibrary()
+  }, [])
 
   useEffect(() => {
     try {
@@ -88,6 +95,11 @@ export default function App() {
       }
       if (meta && e.key.toLowerCase() === 'o') {
         e.preventDefault()
+        fileRef.current?.click()
+        return
+      }
+      if (meta && e.key.toLowerCase() === 'n') {
+        e.preventDefault()
         setTemplates(true)
         return
       }
@@ -118,6 +130,10 @@ export default function App() {
           setPalette(false)
           return
         }
+        if (help) {
+          setHelp(false)
+          return
+        }
         if (templates) {
           setTemplates(false)
           return
@@ -133,6 +149,11 @@ export default function App() {
         return
       }
       if (typing) return
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault()
+        setHelp((v) => !v)
+        return
+      }
       if (e.key === '.' || e.key === '\\') {
         state.setFlag('focusMode', !state.focusMode)
         return
@@ -208,7 +229,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [palette, templates])
+  }, [palette, templates, help])
 
   const showPlan = !mobile || tab === 'plan'
   const want3d = !mobile || tab === 'view3d'
@@ -224,6 +245,7 @@ export default function App() {
         onTemplates={() => setTemplates(true)}
         onPalette={() => setPalette(true)}
         onImport={() => fileRef.current?.click()}
+        onHelp={() => setHelp(true)}
       />
       <input
         ref={fileRef}
@@ -278,8 +300,15 @@ export default function App() {
           </button>
         </nav>
       )}
-      {palette && <CommandPalette onClose={() => setPalette(false)} onOpenTemplates={() => setTemplates(true)} />}
+      {palette && (
+        <CommandPalette
+          onClose={() => setPalette(false)}
+          onOpenTemplates={() => setTemplates(true)}
+          onHelp={() => setHelp(true)}
+        />
+      )}
       {templates && <TemplateGallery onClose={() => setTemplates(false)} />}
+      {help && <HelpModal onClose={() => setHelp(false)} />}
     </div>
   )
 }
@@ -289,8 +318,8 @@ function ViewCameras() {
   return (
     <div className="cam-switch">
       {(['orbit', 'eye', 'top'] as const).map((id) => (
-        <button key={id} type="button" className={mode === id ? 'on' : ''} onClick={() => usePlanner.getState().setCameraMode(id)}>
-          {id}
+        <button key={id} type="button" className={mode === id ? 'on' : ''} title={`Camera: ${id}`} onClick={() => usePlanner.getState().setCameraMode(id)}>
+          {id === 'orbit' ? 'Orbit' : id === 'eye' ? 'Eye' : 'Top'}
         </button>
       ))}
     </div>

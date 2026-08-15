@@ -3,7 +3,7 @@ import { Icon } from './Icon'
 
 const LAYERS = [
   ['showWalls', 'Walls'],
-  ['showOpenings', 'Doors'],
+  ['showOpenings', 'Openings'],
   ['showFurniture', 'Fixtures'],
   ['showLighting', 'Lights'],
   ['showElectrical', 'Power'],
@@ -46,12 +46,12 @@ export function CanvasDock() {
 
   return (
     <div className="canvas-dock">
-      <button type="button" className={`snap ${snapOn ? 'on' : ''}`} onClick={() => usePlanner.getState().cycleSnap()}>
+      <button type="button" className={`snap ${snapOn ? 'on' : ''}`} title="Cycle grid snap" onClick={() => usePlanner.getState().cycleSnap()}>
         <Icon name="snap" />
         Snap {Math.round(snap * 1000)} mm
       </button>
-      <button type="button" onClick={() => usePlanner.getState().fitView()}>
-        Fit
+      <button type="button" title="Fit the plan to the room (F)" onClick={() => usePlanner.getState().fitView()}>
+        Fit plan
       </button>
       <div className="dock-layers">
         {LAYERS.map(([k, label]) => (

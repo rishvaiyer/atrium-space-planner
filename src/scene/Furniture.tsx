@@ -1,10 +1,33 @@
-import { useMemo } from 'react'
-import { catalogItem } from '../catalog'
+import { Suspense, useMemo } from 'react'
+import { catalogItem, getGlbUrl } from '../catalog'
 import { itemDims } from '../geometry'
 import { useLowPower } from '../lowPower'
 import { floorTexture, marbleTexture, surfaceMap, wallTexture, woodTexture } from '../textures'
 import type { FloorFinish, PlacedItem, Room, WallFinish } from '../types'
 import { doorHinge, pointOnWall, wallDir, wallPieces } from '../walls'
+import { GlbSafe } from './GlbProp'
+import {
+  ArmchairMesh,
+  ArtMesh,
+  BedMesh,
+  BookshelfMesh,
+  CoatRackMesh,
+  FireplaceMesh,
+  FloorLampMesh,
+  GrandPianoMesh,
+  MirrorMesh,
+  OttomanMesh,
+  PianoMesh,
+  RugMesh,
+  SideTableMesh,
+  SinkMesh,
+  SofaMesh,
+  SpeakerMesh,
+  TallPlantMesh,
+  TrashMesh,
+  TvMesh,
+  VaseMesh,
+} from './realProps'
 
 const LEGS: [number, number][] = [
   [-1, -1],
@@ -24,7 +47,15 @@ export function FurnitureMesh({ item, brand }: { item: PlacedItem; brand: string
   const sx = w / def.w
   const sy = h / def.h
   const sz = d / def.d
-  const map = item.texture ? surfaceMap(item.texture) : null
+  const glbUrl = getGlbUrl(item.catalogId) || item.glbUrl
+
+  if (glbUrl) {
+    return (
+      <Suspense fallback={null}>
+        <GlbSafe url={glbUrl} w={w} d={d} h={h} />
+      </Suspense>
+    )
+  }
 
   const body = (() => {
     switch (item.catalogId) {
@@ -46,10 +77,13 @@ export function FurnitureMesh({ item, brand }: { item: PlacedItem; brand: string
       case 'sofa':
       case 'clinic-sofa':
       case 'booth':
+        return <SofaMesh w={def.w} d={def.d} accent={accent} />
       case 'bench':
       case 'fitting-bench':
+      case 'piano-bench':
         return <Banquette w={def.w} d={def.d} accent={accent} />
       case 'armchair':
+        return <ArmchairMesh accent={accent} />
       case 'guest-chair':
       case 'dining-chair':
       case 'student-chair':
@@ -65,11 +99,13 @@ export function FurnitureMesh({ item, brand }: { item: PlacedItem; brand: string
       case 'phone-booth':
         return <HabMod accent={accent} />
       case 'bed':
-        return <Banquette w={def.w} d={Math.min(def.d, 1.1)} accent={accent} />
+        return <BedMesh accent={accent} />
       case 'exam-table':
         return <Table top={def.w} square depth={def.d} />
       case 'coffee-table':
-        return <Table top={def.w} square depth={def.d} />
+      case 'side-table':
+      case 'nightstand':
+        return <SideTableMesh />
       case 'reception':
       case 'whiteboard':
         return <Bar w={def.w} d={Math.max(def.d, 0.12)} h={def.h} />
@@ -88,9 +124,12 @@ export function FurnitureMesh({ item, brand }: { item: PlacedItem; brand: string
         return <HostStand />
       case 'planter':
         return <Planter />
+      case 'plant-tall':
+        return <TallPlantMesh accent={accent} />
       case 'desk':
         return <Desk />
       case 'credenza':
+      case 'dresser':
         return <Credenza />
       case 'gondola':
         return <Gondola />
@@ -110,28 +149,55 @@ export function FurnitureMesh({ item, brand }: { item: PlacedItem; brand: string
         return <Shelter accent={accent} />
       case 'isru':
         return <Isru />
+      case 'piano':
+        return <PianoMesh accent={accent} />
+      case 'grand-piano':
+        return <GrandPianoMesh accent={accent} />
+      case 'bookshelf':
+      case 'shelf':
+      case 'cubby':
+      case 'file-cabinet':
+        return <BookshelfMesh />
+      case 'tv-console':
+        return <TvMesh />
+      case 'floor-lamp':
+        return <FloorLampMesh />
+      case 'trash':
+        return <TrashMesh />
+      case 'coat-rack':
+      case 'clothing-rack':
+        return <CoatRackMesh />
+      case 'vase':
+        return <VaseMesh accent={accent} />
+      case 'ottoman':
+        return <OttomanMesh accent={accent} />
+      case 'rug':
+        return <RugMesh accent={accent} />
+      case 'sink':
+        return <SinkMesh />
+      case 'mirror':
+        return <MirrorMesh />
+      case 'wall-art':
+        return <ArtMesh accent={accent} />
+      case 'fireplace':
+        return <FireplaceMesh />
+      case 'speaker':
+        return <SpeakerMesh />
       default:
         return (
           <mesh position={[0, def.h / 2, 0]} castShadow receiveShadow>
             <boxGeometry args={[def.w, def.h, def.d]} />
-            <meshStandardMaterial color={accent} roughness={0.6} />
+            <meshStandardMaterial
+              color={accent}
+              roughness={0.6}
+              map={item.texture ? surfaceMap(item.texture) : undefined}
+            />
           </mesh>
         )
     }
   })()
 
-  return (
-    <group scale={[sx, sy, sz]}>
-      {map ? (
-        <mesh position={[0, def.h / 2, 0]} castShadow receiveShadow>
-          <boxGeometry args={[def.w, def.h, def.d]} />
-          <meshStandardMaterial map={map} color={accent} roughness={0.65} />
-        </mesh>
-      ) : (
-        body
-      )}
-    </group>
-  )
+  return <group scale={[sx, sy, sz]}>{body}</group>
 }
 
 function Chair({ accent }: { accent: string }) {
