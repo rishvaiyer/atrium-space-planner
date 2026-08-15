@@ -24,10 +24,13 @@ export function InspectorPanel() {
   const selected = selectedIds.length === 1 ? items.find((i) => i.id === selectedIds[0]) : undefined
   const def = selected ? catalogItem(selected.catalogId) : undefined
 
-  const analysis = useMemo(
-    () => analyzeLayout({ room, items, tier, floor, cap, jurisdiction }),
-    [room, items, tier, floor, cap, jurisdiction],
-  )
+  const analysis = useMemo(() => {
+    try {
+      return analyzeLayout({ room, items, tier, floor, cap, jurisdiction })
+    } catch {
+      return null
+    }
+  }, [room, items, tier, floor, cap, jurisdiction])
 
   const hourLabel =
     `${Math.floor(time).toString().padStart(2, '0')}:${Math.round((time % 1) * 60)
@@ -119,6 +122,8 @@ export function InspectorPanel() {
 
       <section>
         <div className="panel-kicker">Code & egress</div>
+        {analysis ? (
+          <>
         <div className="kv">
           <span>Occupancy</span>
           <b>{analysis.occupancyGroup}</b>
@@ -160,6 +165,10 @@ export function InspectorPanel() {
             </li>
           ))}
         </ul>
+          </>
+        ) : (
+          <p className="empty">Code checks unavailable.</p>
+        )}
       </section>
 
       <section className="estimate">
@@ -171,6 +180,8 @@ export function InspectorPanel() {
             </button>
           ))}
         </div>
+        {analysis ? (
+          <>
         <ul className="lines">
           {analysis.lines.map((line) => (
             <li key={line.group}>
@@ -190,6 +201,10 @@ export function InspectorPanel() {
           />
         </div>
         <div className="cap-label">Cap {formatMoney(analysis.cap)}</div>
+          </>
+        ) : (
+          <p className="empty">Estimate unavailable.</p>
+        )}
       </section>
     </aside>
   )

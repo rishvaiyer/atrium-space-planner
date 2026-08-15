@@ -17,6 +17,12 @@ type MobileTab = 'plan' | 'view3d' | 'catalog' | 'inspect'
 export default function App() {
   const mobile = useIsMobile()
   const [tab, setTab] = useState<MobileTab>('plan')
+  const [allow3d, setAllow3d] = useState(false)
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setAllow3d(true), 50)
+    return () => window.clearTimeout(id)
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -54,6 +60,9 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  const showPlan = !mobile || tab === 'plan'
+  const show3d = allow3d && (!mobile || tab === 'view3d')
+
   return (
     <div className={`app ${mobile ? 'mobile' : ''}`}>
       <Header compact={mobile} />
@@ -77,11 +86,14 @@ export default function App() {
         {(!mobile || tab === 'catalog') && <CatalogPanel />}
         {(!mobile || tab === 'plan' || tab === 'view3d') && (
           <div className="views">
-            {(!mobile || tab === 'plan') && <FloorPlan2D />}
-            {(!mobile || tab === 'view3d') && (
+            {showPlan && <FloorPlan2D />}
+            {show3d && (
               <Suspense fallback={<div className="viewport3d boot-3d">Loading 3D…</div>}>
                 <Viewport3D />
               </Suspense>
+            )}
+            {!show3d && (!mobile || tab === 'view3d') && (
+              <div className="viewport3d boot-3d">Loading 3D…</div>
             )}
           </div>
         )}

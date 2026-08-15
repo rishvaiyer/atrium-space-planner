@@ -26,10 +26,13 @@ export function FloorPlan2D() {
   const cap = usePlanner((s) => s.budgetCap)
   const jurisdiction = usePlanner((s) => s.jurisdiction)
 
-  const analysis = useMemo(
-    () => analyzeLayout({ room, items, tier, floor, cap, jurisdiction }),
-    [room, items, tier, floor, cap, jurisdiction],
-  )
+  const analysis = useMemo(() => {
+    try {
+      return analyzeLayout({ room, items, tier, floor, cap, jurisdiction })
+    } catch {
+      return null
+    }
+  }, [room, items, tier, floor, cap, jurisdiction])
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState({ x: -1.4, y: -1.5, w: room.width + 2.8, h: room.depth + 3 })
@@ -195,7 +198,7 @@ export function FloorPlan2D() {
         )}
 
         {showEgress &&
-          analysis.paths.map((path) => (
+          analysis?.paths.map((path) => (
             <polyline
               key={path.fromId}
               className={`egress ${selectedIds.includes(path.fromId) ? 'hot' : ''}`}
