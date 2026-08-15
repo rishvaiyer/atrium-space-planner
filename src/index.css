@@ -370,8 +370,29 @@ html[data-theme='dark'] .viewport2d { background: #141416; }
 .plan-svg .paper { fill: var(--paper); }
 .plan-svg .grid .minor { stroke: rgba(20, 28, 40, 0.07); stroke-width: 0.01; }
 .plan-svg .grid .major { stroke: rgba(20, 28, 40, 0.16); stroke-width: 0.016; }
-.plan-svg .walls rect { fill: #141820; }
-.plan-svg .door-cut { fill: var(--paper); }
+.plan-svg .walls line {
+  stroke: #141820;
+  stroke-width: 0.2;
+  stroke-linecap: square;
+}
+.plan-svg .walls line.wall-sel { stroke: #2563eb; }
+.plan-svg .door-cut {
+  stroke: var(--paper);
+  stroke-width: 0.22;
+  stroke-linecap: butt;
+  fill: none;
+}
+.plan-svg .window-cut {
+  stroke: #7aa7c7;
+  stroke-width: 0.08;
+  fill: none;
+}
+.plan-svg .wall-preview line {
+  stroke: #2563eb;
+  stroke-width: 0.12;
+  stroke-dasharray: 0.12 0.08;
+}
+.plan-svg .wall-preview circle { fill: #2563eb; }
 .plan-svg .swing { fill: none; stroke: #6b7788; stroke-width: 0.03; stroke-dasharray: 0.08 0.06; }
 .plan-svg .plan-item { stroke: #1b222c; stroke-width: 0.018; }
 .plan-svg .plan-item.selected .sel { fill: none; stroke: #2563eb; stroke-width: 0.03; stroke-dasharray: 0.05 0.04; }
@@ -453,6 +474,9 @@ input[type='range'] { width: 100%; accent-color: var(--accent); }
 .viewport2d.tool-paint { cursor: cell; }
 .viewport2d.tool-note { cursor: crosshair; }
 .viewport2d.tool-stamp { cursor: copy; }
+.viewport2d.tool-wall,
+.viewport2d.tool-door,
+.viewport2d.tool-window { cursor: crosshair; }
 
 .modal-scrim {
   position: fixed;

@@ -1,5 +1,6 @@
 import type { PlacedItem, Room } from './types'
 import { uid } from './geometry'
+import { boxRoom } from './walls'
 
 const PI = Math.PI
 
@@ -22,22 +23,21 @@ export function chairsAround(tx: number, tz: number, span = 0.62): PlacedItem[] 
   ]
 }
 
-export const ROOM: Room = {
-  width: 11.2,
-  depth: 8.4,
-  wallHeight: 3.15,
-  wallThickness: 0.2,
-  doors: [
-    { id: 'door-main', wall: 's', offset: 1.7, width: 1.0, swing: 'left' },
-    { id: 'door-service', wall: 'e', offset: 6.35, width: 0.9, swing: 'right' },
+export const ROOM: Room = boxRoom(
+  11.2,
+  8.4,
+  3.15,
+  [
+    { id: 'door-main', wallId: 's', offset: 1.7, width: 1.0, swing: 'left' },
+    { id: 'door-service', wallId: 'e', offset: 6.35, width: 0.9, swing: 'right' },
   ],
-  windows: [
-    { id: 'w1', wall: 'n', offset: 1.1, width: 2.2, sill: 0.9, head: 2.4 },
-    { id: 'w2', wall: 'n', offset: 4.5, width: 2.2, sill: 0.9, head: 2.4 },
-    { id: 'w3', wall: 'n', offset: 7.9, width: 2.2, sill: 0.9, head: 2.4 },
-    { id: 'w4', wall: 'e', offset: 1.4, width: 1.8, sill: 0.9, head: 2.4 },
+  [
+    { id: 'w1', wallId: 'n', offset: 1.1, width: 2.2, sill: 0.9, head: 2.4 },
+    { id: 'w2', wallId: 'n', offset: 4.5, width: 2.2, sill: 0.9, head: 2.4 },
+    { id: 'w3', wallId: 'n', offset: 7.9, width: 2.2, sill: 0.9, head: 2.4 },
+    { id: 'w4', wallId: 'e', offset: 1.4, width: 1.8, sill: 0.9, head: 2.4 },
   ],
-}
+)
 
 export function createDefaultItems(): PlacedItem[] {
   return earthItems()

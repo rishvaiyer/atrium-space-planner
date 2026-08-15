@@ -160,11 +160,11 @@ function Planet({ world }: { world: World }) {
 function CameraRig({ mode, room }: { mode: CameraMode; room: Room }) {
   const { camera, controls } = useThree()
   useLayoutEffect(() => {
-    const cx = room.width / 2
-    const cz = room.depth / 2
+    const cx = room.originX + room.width / 2
+    const cz = room.originZ + room.depth / 2
     const ty = mode === 'eye' ? 1.5 : 0.4
     if (mode === 'eye') {
-      camera.position.set(Math.min(1.5, room.width * 0.18), 1.55, cz)
+      camera.position.set(room.originX + Math.min(1.5, room.width * 0.18), 1.55, cz)
     } else if (mode === 'top') {
       camera.position.set(cx, Math.max(room.width, room.depth) * 1.15, cz + 0.05)
     } else {
@@ -172,7 +172,7 @@ function CameraRig({ mode, room }: { mode: CameraMode; room: Room }) {
     }
     const orbit = controls as { target?: { set: (x: number, y: number, z: number) => void } } | null
     orbit?.target?.set(cx, ty, cz)
-  }, [mode, room.width, room.depth, camera, controls])
+  }, [mode, room.width, room.depth, room.originX, room.originZ, camera, controls])
   return null
 }
 
@@ -202,7 +202,7 @@ function Scene({
       <RoomMesh room={room} floor={floor} wallFinish={wallFinish} showWalls={showWalls} />
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[room.width / 2, 0.01, room.depth / 2]}
+        position={[room.originX + room.width / 2, 0.01, room.originZ + room.depth / 2]}
         onPointerDown={(e) => {
           e.stopPropagation()
           const state = usePlanner.getState()
@@ -291,11 +291,13 @@ function IsoView({
   floor: FloorFinish
   worldId: WorldId
 }) {
+  const ox = room.originX
+  const oz = room.originZ
   const floorPts = [
-    iso(0, 0),
-    iso(room.width, 0),
-    iso(room.width, room.depth),
-    iso(0, room.depth),
+    iso(ox, oz),
+    iso(ox + room.width, oz),
+    iso(ox + room.width, oz + room.depth),
+    iso(ox, oz + room.depth),
   ]
   const earthFloor =
     floor === 'oak' || floor === 'walnut' || floor === 'herringbone'

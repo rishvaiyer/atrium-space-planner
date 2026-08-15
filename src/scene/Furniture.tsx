@@ -3,6 +3,7 @@ import { catalogItem } from '../catalog'
 import { useLowPower } from '../lowPower'
 import { floorTexture, marbleTexture, wallTexture, woodTexture } from '../textures'
 import type { FloorFinish, PlacedItem, Room, WallFinish } from '../types'
+import { doorHinge, pointOnWall, wallDir, wallPieces } from '../walls'
 
 const LEGS: [number, number][] = [
   [-1, -1],
@@ -489,134 +490,71 @@ export function RoomMesh({
   showWalls: boolean
 }) {
   const plaster = useMemo(() => wallTexture(wallFinish), [wallFinish])
-  const { width: w, depth: d, wallHeight: h, wallThickness: t } = room
-
-  const south = pieces(w, room.doors.filter((door) => door.wall === 's'))
-  const north = pieces(w, room.doors.filter((door) => door.wall === 'n'))
-  const west = pieces(d, room.doors.filter((door) => door.wall === 'w'))
-  const east = pieces(d, room.doors.filter((door) => door.wall === 'e'))
+  const { width: w, depth: d, originX: ox, originZ: oz, wallHeight: h, wallThickness: t } = room
 
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[w / 2, 0, d / 2]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[ox + w / 2, 0, oz + d / 2]} receiveShadow>
         <planeGeometry args={[w, d]} />
         <FloorMat kind={floor} />
       </mesh>
-      {showWalls && (
-        <>
-          {south.map((p) => (
-            <mesh key={`s${p.s}`} position={[(p.s + p.e) / 2, h / 2, -t / 2]} receiveShadow>
-              <boxGeometry args={[p.e - p.s, h, t]} />
-              <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
+      {showWalls &&
+        room.walls.map((wall) => {
+          const dir = wallDir(wall)
+          const angle = Math.atan2(dir.z, dir.x)
+          return (
+            <group key={wall.id}>
+              {wallPieces(room, wall).map((p) => {
+                const mid = (p.s + p.e) / 2
+                const pos = pointOnWall(wall, mid)
+                return (
+                  <mesh key={`${wall.id}-${p.s}`} position={[pos.x, h / 2, pos.z]} rotation={[0, -angle, 0]} receiveShadow>
+                    <boxGeometry args={[p.e - p.s, h, t]} />
+                    <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
+                  </mesh>
+                )
+              })}
+            </group>
+          )
+        })}
+      {showWalls &&
+        room.windows.map((win) => {
+          const wall = room.walls.find((w) => w.id === win.wallId)
+          if (!wall) return null
+          const dir = wallDir(wall)
+          const angle = Math.atan2(dir.z, dir.x)
+          const pos = pointOnWall(wall, win.offset + win.width / 2)
+          const wh = win.head - win.sill
+          return (
+            <mesh key={win.id} position={[pos.x, win.sill + wh / 2, pos.z]} rotation={[0, -angle, 0]}>
+              <boxGeometry args={[win.width, wh, 0.04]} />
+              <meshStandardMaterial
+                color="#b9d4e4"
+                transparent
+                opacity={0.28}
+                metalness={0.1}
+                roughness={0.05}
+                emissive="#dcefff"
+                emissiveIntensity={0.15}
+              />
             </mesh>
-          ))}
-          {north.map((p) => (
-            <mesh key={`n${p.s}`} position={[(p.s + p.e) / 2, h / 2, d + t / 2]} receiveShadow>
-              <boxGeometry args={[p.e - p.s, h, t]} />
-              <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
-            </mesh>
-          ))}
-          {west.map((p) => (
-            <mesh key={`w${p.s}`} position={[-t / 2, h / 2, (p.s + p.e) / 2]} receiveShadow>
-              <boxGeometry args={[t, h, p.e - p.s]} />
-              <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
-            </mesh>
-          ))}
-          {east.map((p) => (
-            <mesh key={`e${p.s}`} position={[w + t / 2, h / 2, (p.s + p.e) / 2]} receiveShadow>
-              <boxGeometry args={[t, h, p.e - p.s]} />
-              <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
-            </mesh>
-          ))}
-          <mesh position={[-t / 2, h / 2, -t / 2]} receiveShadow>
-            <boxGeometry args={[t, h, t]} />
-            <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
-          </mesh>
-          <mesh position={[w + t / 2, h / 2, -t / 2]} receiveShadow>
-            <boxGeometry args={[t, h, t]} />
-            <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
-          </mesh>
-          <mesh position={[-t / 2, h / 2, d + t / 2]} receiveShadow>
-            <boxGeometry args={[t, h, t]} />
-            <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
-          </mesh>
-          <mesh position={[w + t / 2, h / 2, d + t / 2]} receiveShadow>
-            <boxGeometry args={[t, h, t]} />
-            <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
-          </mesh>
-          {room.windows.map((win) => {
-            const along = win.wall === 'n' || win.wall === 's'
-            const x =
-              win.wall === 'w' ? 0.02 : win.wall === 'e' ? w - 0.02 : win.offset + win.width / 2
-            const z =
-              win.wall === 's' ? 0.02 : win.wall === 'n' ? d - 0.02 : win.offset + win.width / 2
-            const wh = win.head - win.sill
-            return (
-              <mesh key={win.id} position={[x, win.sill + wh / 2, z]}>
-                <boxGeometry args={along ? [win.width, wh, 0.04] : [0.04, wh, win.width]} />
-                <meshStandardMaterial
-                  color="#b9d4e4"
-                  transparent
-                  opacity={0.28}
-                  metalness={0.1}
-                  roughness={0.05}
-                  emissive="#dcefff"
-                  emissiveIntensity={0.15}
-                />
+          )
+        })}
+      {showWalls &&
+        room.doors.map((door) => {
+          const hinge = doorHinge(room, door)
+          if (!hinge) return null
+          return (
+            <group key={door.id} position={[hinge.x, 0, hinge.z]} rotation={[0, hinge.angle + 1.15, 0]}>
+              <mesh position={[door.width / 2, 1.05, 0]} castShadow>
+                <boxGeometry args={[door.width, 2.1, 0.05]} />
+                <meshStandardMaterial color="#6b4428" roughness={0.55} />
               </mesh>
-            )
-          })}
-          {room.doors.map((door) => {
-            const open = 1.15
-            const hingeX =
-              door.wall === 's'
-                ? door.offset
-                : door.wall === 'n'
-                  ? door.offset + door.width
-                  : door.wall === 'w'
-                    ? 0
-                    : w
-            const hingeZ =
-              door.wall === 's'
-                ? 0
-                : door.wall === 'n'
-                  ? d
-                  : door.wall === 'w'
-                    ? door.offset + door.width
-                    : door.offset
-            const rot =
-              door.wall === 's'
-                ? open
-                : door.wall === 'n'
-                  ? Math.PI + open
-                  : door.wall === 'w'
-                    ? Math.PI / 2 + open
-                    : -Math.PI / 2 - open
-            return (
-              <group key={door.id} position={[hingeX, 0, hingeZ]} rotation={[0, rot, 0]}>
-                <mesh position={[door.width / 2, 1.05, 0]} castShadow>
-                  <boxGeometry args={[door.width, 2.1, 0.05]} />
-                  <meshStandardMaterial color="#6b4428" roughness={0.55} />
-                </mesh>
-              </group>
-            )
-          })}
-        </>
-      )}
+            </group>
+          )
+        })}
     </group>
   )
-}
-
-function pieces(length: number, doors: { offset: number; width: number }[]) {
-  const holes = doors.map((door) => ({ s: door.offset, e: door.offset + door.width })).sort((a, b) => a.s - b.s)
-  const out: { s: number; e: number }[] = []
-  let cursor = 0
-  for (const hole of holes) {
-    if (hole.s > cursor + 0.01) out.push({ s: cursor, e: hole.s })
-    cursor = Math.max(cursor, hole.e)
-  }
-  if (cursor < length - 0.01) out.push({ s: cursor, e: length })
-  return out
 }
 
 function FloorMat({ kind }: { kind: FloorFinish }) {

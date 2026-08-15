@@ -1,4 +1,5 @@
 import type { BudgetTier, Category, FloorFinish, Jurisdiction, Note, PlacedItem, Room, WallFinish } from './types'
+import { migrateRoom } from './walls'
 
 export const PROJECT_KEY = 'atrium-project-v1'
 
@@ -42,6 +43,7 @@ export function readProjectFile(raw: string): ProjectFile | null {
   try {
     const data = JSON.parse(raw) as ProjectFile
     if (data?.version !== 1 || !data.room || !Array.isArray(data.items)) return null
+    data.room = migrateRoom(data.room)
     return data
   } catch {
     return null

@@ -4,6 +4,7 @@ import { analyzeLayout } from '../compliance'
 import { formatMm, formatMoney } from '../geometry'
 import { usePlanner } from '../store'
 import type { BudgetTier, FloorFinish, Jurisdiction, WallFinish } from '../types'
+import { wallById, wallLen } from '../walls'
 
 const BRANDS = ['#3b82f6', '#111111', '#efeae2', '#c2410c', '#6b5344', '#0f766e']
 const FLOORS: FloorFinish[] = [
@@ -36,6 +37,7 @@ export function InspectorPanel() {
   const worldId = usePlanner((s) => s.worldId)
 
   const occupancyGroup = usePlanner((s) => s.occupancyGroup)
+  const selectedArch = usePlanner((s) => s.selectedArch)
 
   const selected = selectedIds.length === 1 ? items.find((i) => i.id === selectedIds[0]) : undefined
   const def = selected ? catalogItem(selected.catalogId) : undefined
@@ -120,7 +122,48 @@ export function InspectorPanel() {
             />
           </div>
         </label>
+        <p className="hint">W draws a wall · D a door · G a window. Shift for an angled wall.</p>
       </section>
+
+      {selectedArch && (
+        <section>
+          <div className="panel-kicker">Architecture</div>
+          {selectedArch.kind === 'wall' &&
+            (() => {
+              const wall = wallById(room, selectedArch.id)
+              if (!wall) return <p className="empty">Wall missing.</p>
+              return (
+                <>
+                  <h3>Wall</h3>
+                  <div className="kv">
+                    <span>Length</span>
+                    <b>{formatMm(wallLen(wall))}</b>
+                    <span>From</span>
+                    <b>
+                      {wall.ax.toFixed(2)}, {wall.az.toFixed(2)}
+                    </b>
+                    <span>To</span>
+                    <b>
+                      {wall.bx.toFixed(2)}, {wall.bz.toFixed(2)}
+                    </b>
+                  </div>
+                </>
+              )
+            })()}
+          {selectedArch.kind === 'door' && (
+            <>
+              <h3>Door</h3>
+              <p className="hint">Click a wall with the Door tool to add another 90 cm leaf.</p>
+            </>
+          )}
+          {selectedArch.kind === 'window' && (
+            <>
+              <h3>Window</h3>
+              <p className="hint">1.6 m glazed opening. Delete removes it.</p>
+            </>
+          )}
+        </section>
+      )}
 
       <section>
         <div className="panel-kicker">Selection</div>

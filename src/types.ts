@@ -1,6 +1,7 @@
 export type Category = 'restaurant' | 'office' | 'retail' | 'healthcare' | 'home' | 'education' | 'habitat'
-export type Tool = 'select' | 'measure' | 'pan' | 'paint' | 'stamp' | 'note'
+export type Tool = 'select' | 'measure' | 'pan' | 'paint' | 'stamp' | 'note' | 'wall' | 'door' | 'window'
 export type CameraMode = 'orbit' | 'eye' | 'top'
+export type ArchSel = { kind: 'wall' | 'door' | 'window'; id: string }
 export type FloorFinish =
   | 'oak'
   | 'walnut'
@@ -43,9 +44,17 @@ export interface PlacedItem {
   finish?: string
 }
 
+export interface WallSeg {
+  id: string
+  ax: number
+  az: number
+  bx: number
+  bz: number
+}
+
 export interface Door {
   id: string
-  wall: WallSide
+  wallId: string
   offset: number
   width: number
   swing: 'left' | 'right'
@@ -53,7 +62,7 @@ export interface Door {
 
 export interface WindowSpec {
   id: string
-  wall: WallSide
+  wallId: string
   offset: number
   width: number
   sill: number
@@ -63,8 +72,11 @@ export interface WindowSpec {
 export interface Room {
   width: number
   depth: number
+  originX: number
+  originZ: number
   wallHeight: number
   wallThickness: number
+  walls: WallSeg[]
   doors: Door[]
   windows: WindowSpec[]
 }

@@ -13,6 +13,9 @@ type IconName =
   | 'sun'
   | 'moon'
   | 'snap'
+  | 'wall'
+  | 'door'
+  | 'window'
 
 const d: Record<IconName, string> = {
   select: 'M5 4l6 16 2.2-6.2L19.5 12z',
@@ -29,6 +32,9 @@ const d: Record<IconName, string> = {
   sun: 'M12 7.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9zM12 3v1.6M12 19.4V21M4.2 4.2l1.1 1.1M18.7 18.7l1.1 1.1M3 12h1.6M19.4 12H21M4.2 19.8l1.1-1.1M18.7 5.3l1.1-1.1',
   moon: 'M16.4 13.6A6.2 6.2 0 1110 6.2 8 8 0 0016.4 13.6z',
   snap: 'M4 8h4V4M16 4h4v4M20 16v4h-4M8 20H4v-4',
+  wall: 'M4 8h16M4 16h16M4 8v8M20 8v8',
+  door: 'M6 20V5h12v15M10 12.5h.01',
+  window: 'M5 6h14v12H5zM12 6v12M5 12h14',
 }
 
 export function Icon({ name }: { name: IconName }) {

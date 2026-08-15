@@ -2,9 +2,12 @@ import { usePlanner } from '../store'
 import type { Tool } from '../types'
 import { Icon } from './Icon'
 
-const TOOLS: { id: Tool; label: string; key: string; icon: 'select' | 'pan' | 'measure' | 'paint' | 'stamp' | 'note' }[] = [
+const TOOLS: { id: Tool; label: string; key: string; icon: 'select' | 'pan' | 'measure' | 'wall' | 'door' | 'window' | 'paint' | 'stamp' | 'note' }[] = [
   { id: 'select', label: 'Select', key: 'V', icon: 'select' },
   { id: 'pan', label: 'Pan', key: 'H', icon: 'pan' },
+  { id: 'wall', label: 'Wall', key: 'W', icon: 'wall' },
+  { id: 'door', label: 'Door', key: 'D', icon: 'door' },
+  { id: 'window', label: 'Window', key: 'G', icon: 'window' },
   { id: 'measure', label: 'Measure', key: 'M', icon: 'measure' },
   { id: 'paint', label: 'Paint', key: 'C', icon: 'paint' },
   { id: 'stamp', label: 'Stamp', key: 'T', icon: 'stamp' },

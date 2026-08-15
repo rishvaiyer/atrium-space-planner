@@ -128,6 +128,7 @@ export default function App() {
         state.select(null)
         state.setPending(null)
         state.clearMeasure()
+        state.setWallStart(null)
         return
       }
       if (typing) return
@@ -153,6 +154,18 @@ export default function App() {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
         state.nudgeSelected(0, 1)
+        return
+      }
+      if (e.key === 'w' || e.key === 'W') {
+        state.setTool('wall')
+        return
+      }
+      if ((e.key === 'd' || e.key === 'D') && !meta) {
+        state.setTool('door')
+        return
+      }
+      if (e.key === 'g' || e.key === 'G') {
+        state.setTool('window')
         return
       }
       if (e.key === 'v' || e.key === 'V') {

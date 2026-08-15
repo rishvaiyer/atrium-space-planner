@@ -1,5 +1,6 @@
 import { catalogItem } from './catalog'
-import { doorWorld, itemAabb } from './geometry'
+import { itemAabb } from './geometry'
+import { doorCenter, wallLen, wallPieces, pointOnWall } from './walls'
 import type {
   BudgetTier,
   ComplianceCheck,
@@ -46,11 +47,26 @@ function buildGrid(room: Room, items: PlacedItem[], inflate: number): Grid {
   const cols = Math.ceil(room.width / CELL)
   const rows = Math.ceil(room.depth / CELL)
   const blocked = new Uint8Array(cols * rows)
+  const ox = room.originX
+  const oz = room.originZ
 
   const mark = (x: number, z: number) => {
-    const c = Math.floor(x / CELL)
-    const r = Math.floor(z / CELL)
+    const c = Math.floor((x - ox) / CELL)
+    const r = Math.floor((z - oz) / CELL)
     if (c >= 0 && r >= 0 && c < cols && r < rows) blocked[r * cols + c] = 1
+  }
+
+  for (const wall of room.walls) {
+    const len = wallLen(wall)
+    const steps = Math.max(2, Math.ceil(len / (CELL * 0.5)))
+    const pieces = wallPieces(room, wall)
+    for (let i = 0; i <= steps; i++) {
+      const t = (i / steps) * len
+      const inDoor = !pieces.some((p) => t >= p.s - 0.02 && t <= p.e + 0.02)
+      if (inDoor) continue
+      const p = pointOnWall(wall, t)
+      mark(p.x, p.z)
+    }
   }
 
   for (const item of items) {
@@ -74,10 +90,10 @@ function walkable(grid: Grid, c: number, r: number): boolean {
   return grid.blocked[r * grid.cols + c] === 0
 }
 
-function cellOf(x: number, z: number, grid: Grid): { c: number; r: number } {
+function cellOf(x: number, z: number, grid: Grid, originX = 0, originZ = 0): { c: number; r: number } {
   return {
-    c: clampInt(Math.floor(x / CELL), 0, grid.cols - 1),
-    r: clampInt(Math.floor(z / CELL), 0, grid.rows - 1),
+    c: clampInt(Math.floor((x - originX) / CELL), 0, grid.cols - 1),
+    r: clampInt(Math.floor((z - originZ) / CELL), 0, grid.rows - 1),
   }
 }
 
@@ -85,8 +101,14 @@ function clampInt(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v))
 }
 
-function nearestWalkable(grid: Grid, x: number, z: number): { c: number; r: number } | null {
-  const start = cellOf(x, z, grid)
+function nearestWalkable(
+  grid: Grid,
+  x: number,
+  z: number,
+  originX: number,
+  originZ: number,
+): { c: number; r: number } | null {
+  const start = cellOf(x, z, grid, originX, originZ)
   if (walkable(grid, start.c, start.r)) return start
   for (let radius = 1; radius <= 8; radius++) {
     for (let dc = -radius; dc <= radius; dc++) {
@@ -188,10 +210,11 @@ function pathLength(path: { c: number; r: number }[]): number {
 function doorGoalCells(room: Room, grid: Grid): Set<number> {
   const goals = new Set<number>()
   for (const door of room.doors) {
-    const p = doorWorld(room, door)
-    const inner = nearestWalkable(grid, p.x + p.inwardX * 0.4, p.z + p.inwardZ * 0.4)
+    const p = doorCenter(room, door)
+    if (!p) continue
+    const inner = nearestWalkable(grid, p.x + p.inwardX * 0.4, p.z + p.inwardZ * 0.4, room.originX, room.originZ)
     if (inner) goals.add(inner.r * grid.cols + inner.c)
-    const on = nearestWalkable(grid, p.x + p.inwardX * 0.15, p.z + p.inwardZ * 0.15)
+    const on = nearestWalkable(grid, p.x + p.inwardX * 0.15, p.z + p.inwardZ * 0.15, room.originX, room.originZ)
     if (on) goals.add(on.r * grid.cols + on.c)
   }
   return goals
@@ -245,7 +268,7 @@ export function analyzeLayout(options: {
   for (const item of items) {
     const def = catalogItem(item.catalogId)
     if (!def.isSeat) continue
-    const start = nearestWalkable(grid, item.x, item.z)
+    const start = nearestWalkable(grid, item.x, item.z, room.originX, room.originZ)
     if (!start || goals.size === 0) {
       paths.push({ fromId: item.id, points: [{ x: item.x, z: item.z }], length: 99 })
       continue
@@ -257,7 +280,10 @@ export function analyzeLayout(options: {
     }
     paths.push({
       fromId: item.id,
-      points: found.map((n) => ({ x: (n.c + 0.5) * CELL, z: (n.r + 0.5) * CELL })),
+      points: found.map((n) => ({
+        x: room.originX + (n.c + 0.5) * CELL,
+        z: room.originZ + (n.r + 0.5) * CELL,
+      })),
       length: pathLength(found),
     })
   }
@@ -268,7 +294,7 @@ export function analyzeLayout(options: {
   let aisleReachable = inflatedGoals.size > 0
   for (const item of items) {
     if (!catalogItem(item.catalogId).isSeat) continue
-    const start = nearestWalkable(inflated, item.x, item.z)
+    const start = nearestWalkable(inflated, item.x, item.z, room.originX, room.originZ)
     if (!start) {
       aisleReachable = false
       break
@@ -280,7 +306,7 @@ export function analyzeLayout(options: {
   }
 
   const aisleMinM = aisleReachable ? Math.max(AISLE_REQUIRED, 1.02) : 0.72
-  const doorWidth = Math.min(...room.doors.map((d) => d.width))
+  const doorWidth = room.doors.length ? Math.min(...room.doors.map((d) => d.width)) : 0
   const adaDoor = doorWidth >= 0.81
 
   const groups: Record<string, number> = {

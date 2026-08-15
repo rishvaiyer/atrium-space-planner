@@ -3,7 +3,14 @@ import { catalogItem } from '../catalog'
 import { analyzeLayout } from '../compliance'
 import { formatMm, itemAabb } from '../geometry'
 import { usePlanner } from '../store'
-import type { PlacedItem } from '../types'
+import type { PlacedItem, WallSeg } from '../types'
+import {
+  nearestWall,
+  pointOnWall,
+  snapDrawPoint,
+  wallById,
+  wallDir,
+} from '../walls'
 
 export function FloorPlan2D() {
   const room = usePlanner((s) => s.room)
@@ -31,6 +38,9 @@ export function FloorPlan2D() {
   const cap = usePlanner((s) => s.budgetCap)
   const jurisdiction = usePlanner((s) => s.jurisdiction)
   const worldId = usePlanner((s) => s.worldId)
+  const wallStart = usePlanner((s) => s.wallStart)
+  const selectedArch = usePlanner((s) => s.selectedArch)
+  const [cursor, setCursor] = useState<{ x: number; z: number } | null>(null)
 
   const occupancyGroup = usePlanner((s) => s.occupancyGroup)
   const viewEpoch = usePlanner((s) => s.viewEpoch)
@@ -47,8 +57,13 @@ export function FloorPlan2D() {
   const [view, setView] = useState({ x: -1.4, y: -1.5, w: room.width + 2.8, h: room.depth + 3 })
 
   useEffect(() => {
-    setView({ x: -1.2, y: -1.3, w: room.width + 2.4, h: room.depth + 2.6 })
-  }, [viewEpoch, room.width, room.depth])
+    setView({
+      x: room.originX - 1.2,
+      y: room.originZ - 1.3,
+      w: room.width + 2.4,
+      h: room.depth + 2.6,
+    })
+  }, [viewEpoch, room.width, room.depth, room.originX, room.originZ])
   const drag = useRef<{
     mode: 'pan' | 'item'
     ids: string[]
@@ -115,6 +130,27 @@ export function FloorPlan2D() {
       return
     }
 
+    if (tool === 'wall') {
+      const snap = snapOn ? state.snap : 0
+      const pt = snapDrawPoint(p.x, p.z, room.walls, snap, wallStart ?? undefined, e.shiftKey)
+      if (!wallStart) {
+        state.setWallStart(pt)
+        return
+      }
+      state.addWall(wallStart.x, wallStart.z, pt.x, pt.z)
+      return
+    }
+
+    if (tool === 'door') {
+      state.placeOpening('door', p.x, p.z)
+      return
+    }
+
+    if (tool === 'window') {
+      state.placeOpening('window', p.x, p.z)
+      return
+    }
+
     if (pending) {
       state.placeItem(pending, p.x, p.z)
       return
@@ -136,6 +172,11 @@ export function FloorPlan2D() {
       }
       e.currentTarget.setPointerCapture(e.pointerId)
     } else {
+      const arch = hitArch(room, p.x, p.z)
+      if (arch) {
+        state.selectArch(arch)
+        return
+      }
       state.select(null)
       drag.current = { mode: 'pan', ids: [], lastX: e.clientX, lastZ: e.clientY, moved: false }
       e.currentTarget.setPointerCapture(e.pointerId)
@@ -143,6 +184,11 @@ export function FloorPlan2D() {
   }
 
   const onPointerMove = (e: ReactPointerEvent) => {
+    const p = toWorld(e.clientX, e.clientY)
+    if (tool === 'wall') {
+      const s = snapOn ? snap : 0
+      setCursor(snapDrawPoint(p.x, p.z, room.walls, s, wallStart ?? undefined, e.shiftKey))
+    }
     const d = drag.current
     if (!d) return
     if (d.mode === 'pan') {
@@ -156,7 +202,6 @@ export function FloorPlan2D() {
       setView((v) => ({ ...v, x: v.x - dx, y: v.y - dy }))
       return
     }
-    const p = toWorld(e.clientX, e.clientY)
     if (!d.moved) {
       usePlanner.getState().commitHistory()
       d.moved = true
@@ -169,7 +214,6 @@ export function FloorPlan2D() {
   }
 
   const pad = 0.35
-  const t = room.wallThickness
 
   return (
     <div
@@ -192,41 +236,85 @@ export function FloorPlan2D() {
 
         {showGrid && (
           <g className="grid">
-            {ticks(0, room.width, 0.2).map((x) => (
-              <line key={`vx${x}`} x1={x} y1={0} x2={x} y2={room.depth} className={x % 1 === 0 ? 'major' : 'minor'} />
+            {ticks(room.originX, room.originX + room.width, 0.2).map((x) => (
+              <line
+                key={`vx${x}`}
+                x1={x}
+                y1={room.originZ}
+                x2={x}
+                y2={room.originZ + room.depth}
+                className={Math.abs((x - room.originX) % 1) < 1e-6 ? 'major' : 'minor'}
+              />
             ))}
-            {ticks(0, room.depth, 0.2).map((z) => (
-              <line key={`hz${z}`} x1={0} y1={z} x2={room.width} y2={z} className={z % 1 === 0 ? 'major' : 'minor'} />
+            {ticks(room.originZ, room.originZ + room.depth, 0.2).map((z) => (
+              <line
+                key={`hz${z}`}
+                x1={room.originX}
+                y1={z}
+                x2={room.originX + room.width}
+                y2={z}
+                className={Math.abs((z - room.originZ) % 1) < 1e-6 ? 'major' : 'minor'}
+              />
             ))}
           </g>
         )}
 
         {showWalls && (
           <g className="walls">
-            <rect x={-t} y={-t} width={room.width + t * 2} height={t} />
-            <rect x={-t} y={room.depth} width={room.width + t * 2} height={t} />
-            <rect x={-t} y={0} width={t} height={room.depth} />
-            <rect x={room.width} y={0} width={t} height={room.depth} />
+            {room.walls.map((wall) => (
+              <line
+                key={wall.id}
+                x1={wall.ax}
+                y1={wall.az}
+                x2={wall.bx}
+                y2={wall.bz}
+                className={selectedArch?.kind === 'wall' && selectedArch.id === wall.id ? 'wall-sel' : ''}
+              />
+            ))}
             {showOpenings &&
               room.doors.map((door) => {
-              const along = door.wall === 'n' || door.wall === 's'
-              const x = door.wall === 'w' ? -t - 0.02 : door.wall === 'e' ? room.width - 0.02 : door.offset
-              const y = door.wall === 's' ? -t - 0.02 : door.wall === 'n' ? room.depth - 0.02 : door.offset
-              return (
-                <rect
-                  key={door.id}
-                  className="door-cut"
-                  x={x}
-                  y={y}
-                  width={along ? door.width : t + 0.04}
-                  height={along ? t + 0.04 : door.width}
-                />
-              )
-            })}
+                const wall = wallById(room, door.wallId)
+                if (!wall) return null
+                const a = pointOnWall(wall, door.offset)
+                const b = pointOnWall(wall, door.offset + door.width)
+                return (
+                  <g key={door.id}>
+                    <line
+                      className={`door-cut ${selectedArch?.kind === 'door' && selectedArch.id === door.id ? 'wall-sel' : ''}`}
+                      x1={a.x}
+                      y1={a.z}
+                      x2={b.x}
+                      y2={b.z}
+                    />
+                    <DoorSwing door={door} wall={wall} />
+                  </g>
+                )
+              })}
             {showOpenings &&
-              room.doors.map((door) => (
-              <DoorSwing key={`${door.id}-swing`} door={door} roomWidth={room.width} roomDepth={room.depth} />
-            ))}
+              room.windows.map((win) => {
+                const wall = wallById(room, win.wallId)
+                if (!wall) return null
+                const a = pointOnWall(wall, win.offset)
+                const b = pointOnWall(wall, win.offset + win.width)
+                return (
+                  <line
+                    key={win.id}
+                    className={`window-cut ${selectedArch?.kind === 'window' && selectedArch.id === win.id ? 'wall-sel' : ''}`}
+                    x1={a.x}
+                    y1={a.z}
+                    x2={b.x}
+                    y2={b.z}
+                  />
+                )
+              })}
+          </g>
+        )}
+
+        {tool === 'wall' && wallStart && cursor && (
+          <g className="wall-preview">
+            <line x1={wallStart.x} y1={wallStart.z} x2={cursor.x} y2={cursor.z} />
+            <circle cx={wallStart.x} cy={wallStart.z} r={0.07} />
+            <circle cx={cursor.x} cy={cursor.z} r={0.07} />
           </g>
         )}
 
@@ -269,17 +357,17 @@ export function FloorPlan2D() {
         {showDimensions && (
           <g className="dims">
             <Dimension
-              x1={0}
-              y1={room.depth + pad + 0.15}
-              x2={room.width}
-              y2={room.depth + pad + 0.15}
+              x1={room.originX}
+              y1={room.originZ + room.depth + pad + 0.15}
+              x2={room.originX + room.width}
+              y2={room.originZ + room.depth + pad + 0.15}
               label={formatMm(room.width)}
             />
             <Dimension
-              x1={room.width + pad + 0.15}
-              y1={0}
-              x2={room.width + pad + 0.15}
-              y2={room.depth}
+              x1={room.originX + room.width + pad + 0.15}
+              y1={room.originZ}
+              x2={room.originX + room.width + pad + 0.15}
+              y2={room.originZ + room.depth}
               label={formatMm(room.depth)}
               vertical
             />
@@ -304,7 +392,7 @@ export function FloorPlan2D() {
           </g>
         )}
 
-        <g className="north" transform={`translate(${room.width - 0.55}, ${-0.85})`}>
+        <g className="north" transform={`translate(${room.originX + room.width - 0.55}, ${room.originZ - 0.85})`}>
           <polygon points="0,-0.28 0.12,0.18 -0.12,0.18" />
           <text y="0.42" textAnchor="middle">
             N
@@ -483,40 +571,39 @@ function Dimension({
   )
 }
 
+function hitArch(room: ReturnType<typeof usePlanner.getState>['room'], x: number, z: number) {
+  for (const door of room.doors) {
+    const wall = wallById(room, door.wallId)
+    if (!wall) continue
+    const c = pointOnWall(wall, door.offset + door.width / 2)
+    if (Math.hypot(c.x - x, c.z - z) < 0.28) return { kind: 'door' as const, id: door.id }
+  }
+  for (const win of room.windows) {
+    const wall = wallById(room, win.wallId)
+    if (!wall) continue
+    const c = pointOnWall(wall, win.offset + win.width / 2)
+    if (Math.hypot(c.x - x, c.z - z) < 0.28) return { kind: 'window' as const, id: win.id }
+  }
+  const hit = nearestWall(room.walls, x, z, Math.max(0.28, room.wallThickness * 1.4))
+  if (hit) return { kind: 'wall' as const, id: hit.wall.id }
+  return null
+}
+
 function DoorSwing({
   door,
-  roomWidth,
-  roomDepth,
+  wall,
 }: {
-  door: { wall: 'n' | 's' | 'e' | 'w'; offset: number; width: number; swing: 'left' | 'right' }
-  roomWidth: number
-  roomDepth: number
+  door: { offset: number; width: number; swing: 'left' | 'right' }
+  wall: WallSeg
 }) {
+  const dir = wallDir(wall)
+  const angle = (Math.atan2(dir.z, dir.x) * 180) / Math.PI
+  const hinge = pointOnWall(wall, door.swing === 'left' ? door.offset : door.offset + door.width)
   const w = door.width
-  let x = 0
-  let y = 0
-  let rot = 0
-  if (door.wall === 's') {
-    x = door.offset
-    y = 0
-    rot = 0
-  } else if (door.wall === 'n') {
-    x = door.offset + w
-    y = roomDepth
-    rot = 180
-  } else if (door.wall === 'w') {
-    x = 0
-    y = door.offset + w
-    rot = 90
-  } else {
-    x = roomWidth
-    y = door.offset
-    rot = -90
-  }
   const sweep = door.swing === 'left' ? 1 : 0
   const end = door.swing === 'left' ? `0,${w}` : `${w},0`
   return (
-    <g transform={`translate(${x}, ${y}) rotate(${rot})`}>
+    <g transform={`translate(${hinge.x}, ${hinge.z}) rotate(${angle})`}>
       <path d={`M 0 0 L ${w} 0 A ${w} ${w} 0 0 ${sweep} ${end}`} className="swing" />
     </g>
   )

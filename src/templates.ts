@@ -1,6 +1,7 @@
 import { chairsAround, item, ROOM } from './defaultLayout'
 import type { BudgetTier, Category, FloorFinish, PlacedItem, Room, WallFinish } from './types'
 import { uid } from './geometry'
+import { boxRoom } from './walls'
 
 export interface Template {
   id: string
@@ -21,19 +22,18 @@ function room(
   width: number,
   depth: number,
   wallHeight = 3,
-  doors: Room['doors'] = [{ id: 'door-main', wall: 's', offset: Math.max(0.8, width / 2 - 0.5), width: 1, swing: 'left' }],
+  doors: Room['doors'] = [{ id: 'door-main', wallId: 's', offset: Math.max(0.8, width / 2 - 0.5), width: 1, swing: 'left' }],
   windows: Room['windows'] = [
-    { id: 'w1', wall: 'n', offset: 0.8, width: Math.min(2.4, width - 1.6), sill: 0.9, head: 2.4 },
+    { id: 'w1', wallId: 'n', offset: 0.8, width: Math.min(2.4, width - 1.6), sill: 0.9, head: 2.4 },
   ],
 ): Room {
-  return {
+  return boxRoom(
     width,
     depth,
     wallHeight,
-    wallThickness: 0.2,
-    doors: doors.map((d) => ({ ...d, id: d.id || uid() })),
-    windows: windows.map((w) => ({ ...w, id: w.id || uid() })),
-  }
+    doors.map((d) => ({ ...d, id: d.id || uid() })),
+    windows.map((w) => ({ ...w, id: w.id || uid() })),
+  )
 }
 
 const PI = Math.PI
@@ -94,7 +94,7 @@ export const TEMPLATES: Template[] = [
     timeOfDay: 10,
     budgetCap: 12000,
     budgetTier: 'standard',
-    room: room(9.2, 6.4, 3.1, [{ id: 'd', wall: 's', offset: 3.8, width: 1.1, swing: 'left' }]),
+    room: room(9.2, 6.4, 3.1, [{ id: 'd', wallId: 's', offset: 3.8, width: 1.1, swing: 'left' }]),
     items: () => [
       item('reception', 1.3, 3.2, PI / 2),
       item('task-chair', 2.15, 3.2, PI / 2),
@@ -121,8 +121,8 @@ export const TEMPLATES: Template[] = [
     timeOfDay: 11,
     budgetCap: 8000,
     budgetTier: 'standard',
-    room: room(4.6, 3.8, 2.7, [{ id: 'd', wall: 's', offset: 0.4, width: 0.9, swing: 'right' }], [
-      { id: 'w', wall: 'n', offset: 1.1, width: 1.6, sill: 1.0, head: 2.3 },
+    room: room(4.6, 3.8, 2.7, [{ id: 'd', wallId: 's', offset: 0.4, width: 0.9, swing: 'right' }], [
+      { id: 'w', wallId: 'n', offset: 1.1, width: 1.6, sill: 1.0, head: 2.3 },
     ]),
     items: () => [
       item('exam-table', 2.5, 1.35),
@@ -170,7 +170,7 @@ export const TEMPLATES: Template[] = [
     timeOfDay: 9.5,
     budgetCap: 14000,
     budgetTier: 'budget',
-    room: room(10.4, 8.2, 3.2, [{ id: 'd', wall: 's', offset: 0.5, width: 1, swing: 'left' }]),
+    room: room(10.4, 8.2, 3.2, [{ id: 'd', wallId: 's', offset: 0.5, width: 1, swing: 'left' }]),
     items: () => {
       const out: PlacedItem[] = [item('whiteboard', 5.2, 0.2), item('desk', 5.2, 1.35), item('task-chair', 5.2, 2.05)]
       for (let r = 0; r < 3; r++) {
@@ -214,8 +214,8 @@ export const TEMPLATES: Template[] = [
     timeOfDay: 20,
     budgetCap: 9000,
     budgetTier: 'premium',
-    room: room(5.2, 4.4, 2.6, [{ id: 'd', wall: 's', offset: 0.3, width: 0.9, swing: 'left' }], [
-      { id: 'w', wall: 'n', offset: 1.4, width: 2.2, sill: 0.9, head: 2.3 },
+    room: room(5.2, 4.4, 2.6, [{ id: 'd', wallId: 's', offset: 0.3, width: 0.9, swing: 'left' }], [
+      { id: 'w', wallId: 'n', offset: 1.4, width: 2.2, sill: 0.9, head: 2.3 },
     ]),
     items: () => [
       item('bed', 2.7, 1.35),

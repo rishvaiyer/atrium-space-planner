@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { layoutForWorld, ROOM } from './defaultLayout'
 import { clamp, snapTo, uid } from './geometry'
 import type {
+  ArchSel,
   BudgetTier,
   CameraMode,
   Category,
@@ -17,8 +18,30 @@ import type { WorldId } from './worlds'
 import { worldOf } from './worlds'
 import type { ProjectFile } from './project'
 import { templateById } from './templates'
+import {
+  cloneRoom,
+  migrateRoom,
+  nearestWall,
+  reshapeBox,
+  wallLen,
+  withBounds,
+} from './walls'
 
 const HISTORY_LIMIT = 40
+
+interface Snapshot {
+  items: PlacedItem[]
+  room: Room
+  notes: Note[]
+}
+
+function cloneItems(items: PlacedItem[]): PlacedItem[] {
+  return items.map((item) => ({ ...item }))
+}
+
+function snapState(items: PlacedItem[], room: Room, notes: Note[]): Snapshot {
+  return { items: cloneItems(items), room: cloneRoom(room), notes: notes.map((n) => ({ ...n })) }
+}
 
 export interface PlannerState {
   room: Room
@@ -51,8 +74,10 @@ export interface PlannerState {
   isDragging3d: boolean
   measure: { a: { x: number; z: number } | null; b: { x: number; z: number } | null }
   notes: Note[]
-  past: PlacedItem[][]
-  future: PlacedItem[][]
+  past: Snapshot[]
+  future: Snapshot[]
+  wallStart: { x: number; z: number } | null
+  selectedArch: ArchSel | null
   projectName: string
   templateId: string
   occupancyGroup: string
@@ -111,16 +136,16 @@ export interface PlannerState {
   applyProject: (file: ProjectFile) => void
   fitView: () => void
   nudgeSelected: (dx: number, dz: number) => void
+  selectArch: (sel: ArchSel | null) => void
+  addWall: (ax: number, az: number, bx: number, bz: number) => void
+  setWallStart: (pt: { x: number; z: number } | null) => void
+  placeOpening: (kind: 'door' | 'window', x: number, z: number) => void
   setMeasurePoint: (point: { x: number; z: number }) => void
   clearMeasure: () => void
   commitHistory: () => void
   undo: () => void
   redo: () => void
   resetLayout: () => void
-}
-
-function cloneItems(items: PlacedItem[]): PlacedItem[] {
-  return items.map((item) => ({ ...item }))
 }
 
 export const usePlanner = create<PlannerState>((set, get) => ({
@@ -156,6 +181,8 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   notes: [],
   past: [],
   future: [],
+  wallStart: null,
+  selectedArch: null,
   projectName: 'Café',
   templateId: 'cafe',
   occupancyGroup: 'A-2 Assembly',
@@ -168,25 +195,29 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   select: (id, additive = false) => {
     set((state) => {
       if (!id) {
-        return state.selectedIds.length ? { selectedIds: [] } : state
+        const next: Partial<PlannerState> = {}
+        if (state.selectedIds.length) next.selectedIds = []
+        if (state.selectedArch) next.selectedArch = null
+        return Object.keys(next).length ? next : state
       }
       if (additive) {
         return {
+          selectedArch: null,
           selectedIds: state.selectedIds.includes(id)
             ? state.selectedIds.filter((x) => x !== id)
             : [...state.selectedIds, id],
         }
       }
-      if (state.selectedIds.length === 1 && state.selectedIds[0] === id) return state
-      return { selectedIds: [id] }
+      if (state.selectedIds.length === 1 && state.selectedIds[0] === id && !state.selectedArch) return state
+      return { selectedIds: [id], selectedArch: null }
     })
   },
 
   setTool: (tool) =>
     set((state) =>
-      state.tool === tool && !state.pendingCatalogId && !state.measure.a && !state.measure.b
+      state.tool === tool && !state.pendingCatalogId && !state.measure.a && !state.measure.b && !state.wallStart
         ? state
-        : { tool, pendingCatalogId: null, measure: { a: null, b: null } },
+        : { tool, pendingCatalogId: null, measure: { a: null, b: null }, wallStart: null },
     ),
   setCategory: (category) => set((state) => (state.category === category ? state : { category })),
   setPending: (catalogId) =>
@@ -246,7 +277,29 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   },
 
   deleteSelected: () => {
-    const { selectedIds, items, commitHistory } = get()
+    const { selectedIds, selectedArch, items, room, commitHistory } = get()
+    if (selectedArch) {
+      commitHistory()
+      if (selectedArch.kind === 'wall') {
+        set({
+          room: withBounds({
+            ...room,
+            walls: room.walls.filter((w) => w.id !== selectedArch.id),
+            doors: room.doors.filter((d) => d.wallId !== selectedArch.id),
+            windows: room.windows.filter((w) => w.wallId !== selectedArch.id),
+          }),
+          selectedArch: null,
+          viewEpoch: get().viewEpoch + 1,
+        })
+        return
+      }
+      if (selectedArch.kind === 'door') {
+        set({ room: { ...room, doors: room.doors.filter((d) => d.id !== selectedArch.id) }, selectedArch: null })
+        return
+      }
+      set({ room: { ...room, windows: room.windows.filter((w) => w.id !== selectedArch.id) }, selectedArch: null })
+      return
+    }
     if (!selectedIds.length) return
     commitHistory()
     set({
@@ -349,34 +402,40 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   clearMeasure: () => set({ measure: { a: null, b: null } }),
 
   commitHistory: () => {
-    const { items, past } = get()
+    const { items, room, notes, past } = get()
     set({
-      past: [...past.slice(-(HISTORY_LIMIT - 1)), cloneItems(items)],
+      past: [...past.slice(-(HISTORY_LIMIT - 1)), snapState(items, room, notes)],
       future: [],
     })
   },
 
   undo: () => {
-    const { past, items, future } = get()
+    const { past, items, room, notes, future } = get()
     const prev = past[past.length - 1]
     if (!prev) return
     set({
-      items: prev,
+      items: prev.items,
+      room: prev.room,
+      notes: prev.notes,
       past: past.slice(0, -1),
-      future: [...future, cloneItems(items)],
+      future: [...future, snapState(items, room, notes)],
       selectedIds: [],
+      selectedArch: null,
     })
   },
 
   redo: () => {
-    const { future, items, past } = get()
+    const { future, items, room, notes, past } = get()
     const next = future[future.length - 1]
     if (!next) return
     set({
-      items: next,
+      items: next.items,
+      room: next.room,
+      notes: next.notes,
       future: future.slice(0, -1),
-      past: [...past, cloneItems(items)],
+      past: [...past, snapState(items, room, notes)],
       selectedIds: [],
+      selectedArch: null,
     })
   },
 
@@ -395,7 +454,8 @@ export const usePlanner = create<PlannerState>((set, get) => ({
       const depth = clamp(patch.depth ?? s.room.depth, 3, 22)
       const wallHeight = clamp(patch.wallHeight ?? s.room.wallHeight, 2.2, 6)
       if (width === s.room.width && depth === s.room.depth && wallHeight === s.room.wallHeight) return s
-      return { room: { ...s.room, width, depth, wallHeight }, viewEpoch: s.viewEpoch + 1 }
+      const room = reshapeBox({ ...s.room, wallHeight }, width, depth)
+      return { room: { ...room, wallHeight }, viewEpoch: s.viewEpoch + 1 }
     }),
   nudgeSelected: (dx, dz) => {
     const { selectedIds, items, snap } = get()
@@ -424,6 +484,8 @@ export const usePlanner = create<PlannerState>((set, get) => ({
       budgetTier: t.budgetTier,
       selectedIds: [],
       pendingCatalogId: null,
+      wallStart: null,
+      selectedArch: null,
       worldId: 'earth',
       viewEpoch: s.viewEpoch + 1,
     }))
@@ -454,7 +516,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
       projectName: file.name,
       templateId: file.templateId,
       occupancyGroup: file.occupancyGroup,
-      room: file.room,
+      room: migrateRoom(file.room),
       items: file.items,
       notes: file.notes ?? [],
       brandColor: file.brandColor,
@@ -467,8 +529,47 @@ export const usePlanner = create<PlannerState>((set, get) => ({
       category: file.category,
       selectedIds: [],
       pendingCatalogId: null,
+      wallStart: null,
+      selectedArch: null,
       worldId: 'earth',
       viewEpoch: s.viewEpoch + 1,
     }))
+  },
+  selectArch: (sel) => set({ selectedArch: sel, selectedIds: sel ? [] : get().selectedIds }),
+  setWallStart: (pt) => set({ wallStart: pt }),
+  addWall: (ax, az, bx, bz) => {
+    if (Math.hypot(bx - ax, bz - az) < 0.35) return
+    const { room, commitHistory } = get()
+    commitHistory()
+    const wall = { id: uid(), ax, az, bx, bz }
+    set({
+      room: withBounds({ ...room, walls: [...room.walls, wall] }),
+      wallStart: { x: bx, z: bz },
+      selectedArch: { kind: 'wall', id: wall.id },
+      viewEpoch: get().viewEpoch + 1,
+    })
+  },
+  placeOpening: (kind, x, z) => {
+    const { room, commitHistory } = get()
+    const hit = nearestWall(room.walls, x, z, 0.55)
+    if (!hit) return
+    const width = kind === 'door' ? 0.9 : 1.6
+    const len = wallLen(hit.wall)
+    if (len < width + 0.2) return
+    const offset = clamp(hit.offset - width / 2, 0.08, len - width - 0.08)
+    commitHistory()
+    if (kind === 'door') {
+      const door = { id: uid(), wallId: hit.wall.id, offset, width, swing: 'left' as const }
+      set({
+        room: { ...room, doors: [...room.doors, door] },
+        selectedArch: { kind: 'door', id: door.id },
+      })
+      return
+    }
+    const win = { id: uid(), wallId: hit.wall.id, offset, width, sill: 0.9, head: 2.3 }
+    set({
+      room: { ...room, windows: [...room.windows, win] },
+      selectedArch: { kind: 'window', id: win.id },
+    })
   },
 }))
