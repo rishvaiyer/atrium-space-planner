@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { catalogItem } from '../catalog'
+import { catalogItem, sitHeightOf, worldUse } from '../catalog'
 import { analyzeLayout } from '../compliance'
 import { formatMm, formatMoney } from '../geometry'
 import { usePlanner } from '../store'
@@ -234,6 +234,16 @@ export function InspectorPanel() {
               <span>Size</span>
               <b>
                 {formatMm(def.w)} × {formatMm(def.d)}
+              </b>
+              <span>World</span>
+              <b>
+                {worldUse(def) === 'sit'
+                  ? `Sit × ${def.seats} · ${sitHeightOf(def).toFixed(2)} m`
+                  : worldUse(def) === 'sleep'
+                    ? `Sleep · ${sitHeightOf(def).toFixed(2)} m`
+                    : worldUse(def) === 'work'
+                      ? 'Work surface'
+                      : 'Prop'}
               </b>
             </div>
             <label className="field">

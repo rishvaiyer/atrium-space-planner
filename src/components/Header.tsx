@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { openBoard } from '../board'
 import { catalogItem } from '../catalog'
 import { analyzeLayout } from '../compliance'
+import { toPlaceExport } from '../placeExport'
 import { downloadJson, downloadText } from '../project'
 import { usePlanner } from '../store'
 import { Icon } from './Icon'
@@ -63,6 +64,14 @@ export function Header({
     })
   }
 
+  const exportPlace = () => {
+    const s = usePlanner.getState()
+    downloadJson(
+      `${s.projectName.replace(/\s+/g, '-').toLowerCase()}.place.json`,
+      toPlaceExport({ name: s.projectName, occupancyGroup: s.occupancyGroup, room: s.room, items: s.items }),
+    )
+  }
+
   return (
     <header className={`header ${focusMode ? 'focus' : ''}`}>
       <div className="brand">
@@ -89,6 +98,7 @@ export function Header({
               { label: 'Open', run: onImport },
               { label: 'Save', run: exportJson },
               { label: 'Board', run: printBoard },
+              { label: 'Place JSON', run: exportPlace },
               { label: 'Present', run: () => usePlanner.getState().setFlag('focusMode', !focusMode) },
               { label: 'Redo', run: () => usePlanner.getState().redo() },
             ]}
@@ -109,6 +119,9 @@ export function Header({
             </button>
             <button type="button" title="Printable plan, cost, and code" onClick={printBoard}>
               Board
+            </button>
+            <button type="button" title="Export sit-ready place for Thirdwurld" onClick={exportPlace}>
+              Place
             </button>
             <span className="sep" />
             <button

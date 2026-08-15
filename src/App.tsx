@@ -10,6 +10,7 @@ import { OverlayTools } from './components/OverlayTools'
 import { TemplateGallery } from './components/TemplateGallery'
 import { useIsMobile } from './media'
 import { PROJECT_KEY, readProjectFile } from './project'
+import { readOpenFile } from './design'
 import { usePlanner } from './store'
 
 const Viewport3D = lazy(async () => {
@@ -233,7 +234,7 @@ export default function App() {
           const file = e.target.files?.[0]
           if (!file) return
           file.text().then((raw) => {
-            const project = readProjectFile(raw)
+            const project = readProjectFile(raw) ?? readOpenFile(raw)
             if (project) usePlanner.getState().applyProject(project)
           })
           e.target.value = ''

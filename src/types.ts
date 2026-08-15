@@ -18,6 +18,7 @@ export type BudgetTier = 'budget' | 'standard' | 'premium'
 export type Jurisdiction = 'IBC' | 'NBC' | 'Eurocode'
 export type WallSide = 'n' | 's' | 'e' | 'w'
 export type CostGroup = 'seating' | 'tables' | 'counters' | 'lighting' | 'other' | 'habitat' | 'power' | 'life'
+export type WorldUse = 'sit' | 'sleep' | 'work' | 'prop'
 
 export interface CatalogItem {
   id: string
@@ -33,6 +34,10 @@ export interface CatalogItem {
   blocksCirculation: boolean
   isSeat: boolean
   seats: number
+  /** Hip height in meters when an avatar sits or lies. */
+  sitHeight?: number
+  tags?: string[]
+  use?: WorldUse
 }
 
 export interface PlacedItem {

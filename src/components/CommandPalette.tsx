@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { openBoard } from '../board'
 import { analyzeLayout } from '../compliance'
+import { DESIGN_EXAMPLE, compileDesign } from '../design'
+import { toPlaceExport } from '../placeExport'
+import { downloadJson } from '../project'
 import { TEMPLATES } from '../templates'
 import { usePlanner } from '../store'
 import { toggleTheme } from '../theme'
@@ -34,6 +37,23 @@ export function CommandPalette({ onClose, onOpenTemplates }: { onClose: () => vo
               occupancyGroup: s.occupancyGroup,
             }),
           })
+        },
+      },
+      { id: 'ai-recipe', label: 'Download AI room recipe', run: () => downloadJson('ai-room.example.json', DESIGN_EXAMPLE) },
+      {
+        id: 'ai-lounge',
+        label: 'Load AI lounge example',
+        run: () => usePlanner.getState().applyProject(compileDesign(DESIGN_EXAMPLE)),
+      },
+      {
+        id: 'place',
+        label: 'Export Thirdwurld place JSON',
+        run: () => {
+          const s = usePlanner.getState()
+          downloadJson(
+            `${s.projectName.replace(/\s+/g, '-').toLowerCase()}.place.json`,
+            toPlaceExport({ name: s.projectName, occupancyGroup: s.occupancyGroup, room: s.room, items: s.items }),
+          )
         },
       },
       { id: 'wall', label: 'Wall tool', run: () => usePlanner.getState().setTool('wall') },

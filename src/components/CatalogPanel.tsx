@@ -1,4 +1,5 @@
-import { CATALOG } from '../catalog'
+import { useState } from 'react'
+import { CATALOG, worldUse } from '../catalog'
 import { usePlanner } from '../store'
 import type { Category } from '../types'
 
@@ -16,8 +17,18 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
   const pending = usePlanner((s) => s.pendingCatalogId)
   const setCategory = usePlanner((s) => s.setCategory)
   const setPending = usePlanner((s) => s.setPending)
+  const [q, setQ] = useState('')
   const active = CATS.some((c) => c.id === category) ? category : 'restaurant'
-  const items = CATALOG.filter((i) => i.category === active)
+  const needle = q.trim().toLowerCase()
+  const items = CATALOG.filter((i) => i.category === active).filter((i) => {
+    if (!needle) return true
+    return (
+      i.name.toLowerCase().includes(needle) ||
+      i.sku.toLowerCase().includes(needle) ||
+      i.id.includes(needle) ||
+      (i.tags ?? []).some((t) => t.toLowerCase().includes(needle))
+    )
+  })
 
   return (
     <aside className="panel catalog">
@@ -35,6 +46,10 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
         ))}
       </div>
       <p className="hint">{pending ? 'Tap the plan to drop it' : 'Pick a piece, then tap the plan to place'}</p>
+      <label className="field">
+        Search
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="sofa, booth, piano…" aria-label="Search fixtures" />
+      </label>
       <ul className="catalog-list">
         {items.map((item) => (
           <li key={item.id}>
@@ -50,7 +65,10 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
               <span className={`glyph ${item.plan}`} />
               <span className="meta">
                 <strong>{item.name}</strong>
-                <em>{item.sku}</em>
+                <em>
+                  {item.sku}
+                  {worldUse(item) === 'sit' ? ` · sit ${item.seats}` : worldUse(item) === 'sleep' ? ' · sleep' : ''}
+                </em>
               </span>
               <span className="price">${item.price.toLocaleString()}</span>
             </button>
