@@ -6,7 +6,6 @@ const CATS: { id: Category; label: string }[] = [
   { id: 'restaurant', label: 'Restaurant' },
   { id: 'office', label: 'Office' },
   { id: 'retail', label: 'Retail' },
-  { id: 'habitat', label: 'Habitat' },
 ]
 
 export function CatalogPanel() {
@@ -14,16 +13,17 @@ export function CatalogPanel() {
   const pending = usePlanner((s) => s.pendingCatalogId)
   const setCategory = usePlanner((s) => s.setCategory)
   const setPending = usePlanner((s) => s.setPending)
-  const items = CATALOG.filter((i) => i.category === category)
+  const active = CATS.some((c) => c.id === category) ? category : 'restaurant'
+  const items = CATALOG.filter((i) => i.category === active)
 
   return (
     <aside className="panel catalog">
-      <div className="panel-kicker">Library</div>
+      <div className="panel-kicker">01 · Library</div>
       <div className="cats">
         {CATS.map((c) => (
           <button
             key={c.id}
-            className={c.id === category ? 'on' : ''}
+            className={c.id === active ? 'on' : ''}
             onClick={() => setCategory(c.id)}
           >
             {c.label}
@@ -32,12 +32,14 @@ export function CatalogPanel() {
       </div>
       <p className="hint">{pending ? 'Click the plan or 3D floor to place' : 'Select an item, then click to place'}</p>
       <ul className="catalog-list">
-        {items.map((item) => (
+        {items.map((item, i) => (
           <li key={item.id}>
             <button
+              type="button"
               className={`catalog-row ${pending === item.id ? 'on' : ''}`}
               onClick={() => setPending(pending === item.id ? null : item.id)}
             >
+              <span className="idx">{String(i + 1).padStart(2, '0')}</span>
               <span className={`glyph ${item.plan}`} />
               <span className="meta">
                 <strong>{item.name}</strong>

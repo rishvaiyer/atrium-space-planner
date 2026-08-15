@@ -121,7 +121,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   showOpenings: true,
   showOccupancy: false,
   showLighting: true,
-  brandColor: '#7ee0d6',
+  brandColor: '#b4532a',
   floorFinish: 'concrete',
   wallFinish: 'plaster',
   timeOfDay: 18.5,

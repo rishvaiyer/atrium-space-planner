@@ -54,21 +54,29 @@ export function Toolbar({ compact = false }: { compact?: boolean }) {
     showGrid: grid,
   }
 
+  const tools = compact ? TOOLS.filter((t) => t.id !== 'stamp') : TOOLS
+
   return (
     <footer className="toolbar">
-      <div className="cluster">
-        {(compact ? TOOLS.filter((t) => t.id !== 'stamp') : TOOLS).map((t) => (
+      <div className="cluster tools">
+        {tools.map((t, i) => (
           <button
             key={t.id}
+            type="button"
             className={tool === t.id ? 'on' : ''}
             onClick={() => usePlanner.getState().setTool(t.id)}
           >
+            <span className="idx">{String(i + 1).padStart(2, '0')}</span>
             {t.label}
           </button>
         ))}
-        <button onClick={() => usePlanner.getState().rotateSelected(Math.PI / 2)}>Rotate</button>
-        <button onClick={() => usePlanner.getState().duplicateSelected()}>Copy</button>
-        <button className="danger" onClick={() => usePlanner.getState().deleteSelected()}>
+        <button type="button" onClick={() => usePlanner.getState().rotateSelected(Math.PI / 2)}>
+          Rotate
+        </button>
+        <button type="button" onClick={() => usePlanner.getState().duplicateSelected()}>
+          Copy
+        </button>
+        <button type="button" className="danger" onClick={() => usePlanner.getState().deleteSelected()}>
           Delete
         </button>
       </div>
@@ -77,7 +85,8 @@ export function Toolbar({ compact = false }: { compact?: boolean }) {
           {LAYERS.map(([k, label]) => (
             <button
               key={k}
-              className={layerOn[k] ? 'on' : ''}
+              type="button"
+              className={`layer ${layerOn[k] ? 'on' : ''}`}
               onClick={() => usePlanner.getState().setFlag(k, !layerOn[k])}
             >
               {label}
@@ -86,12 +95,10 @@ export function Toolbar({ compact = false }: { compact?: boolean }) {
         </div>
       )}
       <div className="cluster">
-        <button className={snapOn ? 'on' : ''} onClick={() => usePlanner.getState().cycleSnap()}>
+        <button type="button" className={snapOn ? 'on' : ''} onClick={() => usePlanner.getState().cycleSnap()}>
           Snap {Math.round(snap * 1000)}
         </button>
-        {!compact && (
-          <span className="hint-k">V select · H pan · M measure · C paint · N note · R rotate</span>
-        )}
+        {!compact && <span className="hint-k">V H M C N T R</span>}
       </div>
     </footer>
   )

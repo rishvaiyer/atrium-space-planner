@@ -39,7 +39,7 @@ export const WORLDS: World[] = [
     fogFar: 38,
     hemiSky: '#d5e4f5',
     hemiGround: '#2a313c',
-    brand: '#7ee0d6',
+    brand: '#b4532a',
     floor: 'concrete',
     timeOfDay: 18.5,
     budgetCap: 18000,

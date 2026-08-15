@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent } from 'react'
+import { Crops } from './Crops'
 import { catalogItem } from '../catalog'
 import { analyzeLayout } from '../compliance'
 import { formatMm, itemAabb } from '../geometry'
@@ -174,7 +175,8 @@ export function FloorPlan2D() {
       onPointerUp={onPointerUp}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div className="view-label">2D · plan</div>
+      <Crops />
+      <div className="view-label">Plan</div>
       <svg viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} className="plan-svg">
         <defs>
           <pattern id="hatch" width="0.18" height="0.18" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">

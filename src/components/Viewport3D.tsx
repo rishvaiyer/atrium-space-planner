@@ -9,6 +9,7 @@ import { usePlanner } from '../store'
 import { planetTexture } from '../textures'
 import type { FloorFinish, PlacedItem, Room, WallFinish } from '../types'
 import { worldOf, type World, type WorldId } from '../worlds'
+import { Crops } from './Crops'
 import { GLBoundary } from './GLBoundary'
 
 const CAMERA = { position: [12.5, 7.4, 12] as [number, number, number], fov: 38, near: 0.1, far: 80 }
@@ -86,7 +87,8 @@ export function Viewport3D() {
 
   return (
     <div className="viewport3d">
-      <div className="view-label">3D · {world.name.toLowerCase()}</div>
+      <Crops />
+      <div className="view-label">Model</div>
       <GLBoundary>
         <Canvas
           style={WRAP}
@@ -242,7 +244,7 @@ function PlacedMesh({
       {selected && (
         <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.28, 0.34, 32]} />
-          <meshBasicMaterial color="#7ee0d6" />
+          <meshBasicMaterial color="#b4532a" />
         </mesh>
       )}
     </group>
@@ -303,7 +305,8 @@ function IsoView({
 
   return (
     <div className="viewport3d iso-view">
-      <div className="view-label">3D · isometric</div>
+      <Crops />
+      <div className="view-label">Model · iso</div>
       <svg viewBox={`${minX} ${minY} ${w} ${h}`} className="iso-svg">
         <polygon
           points={floorPts.map((p) => `${p.x},${p.y}`).join(' ')}

@@ -5,7 +5,7 @@ import { formatMm, formatMoney } from '../geometry'
 import { usePlanner } from '../store'
 import type { BudgetTier, FloorFinish, Jurisdiction, WallFinish } from '../types'
 
-const BRANDS = ['#7ee0d6', '#8ab4ff', '#d7dde6', '#111318', '#c4b5fd', '#fb7185']
+const BRANDS = ['#b4532a', '#1c1916', '#e8dfd2', '#3d6b8a', '#6b5344', '#c45c4a']
 const FLOORS: FloorFinish[] = [
   'oak',
   'walnut',
@@ -54,7 +54,7 @@ export function InspectorPanel() {
   return (
     <aside className="panel inspector">
       <section>
-        <div className="panel-kicker">Object properties</div>
+        <div className="panel-kicker">02 · Object</div>
         {selected && def ? (
           <>
             <h3>{def.name}</h3>
@@ -93,7 +93,7 @@ export function InspectorPanel() {
       </section>
 
       <section>
-        <div className="panel-kicker">Environment</div>
+        <div className="panel-kicker">03 · Environment</div>
         <label className="field">
           Time of day
           <div className="slider-row">
@@ -145,14 +145,10 @@ export function InspectorPanel() {
       </section>
 
       <section>
-        <div className="panel-kicker">{worldId === 'earth' ? 'Code & egress' : 'Life support'}</div>
+        <div className="panel-kicker">{worldId === 'earth' ? '04 · Code' : '04 · Life support'}</div>
         {analysis ? (
           <>
         <div className="kv">
-          <span>World</span>
-          <b>
-            {analysis.gravityG} g · {analysis.atmosphereKpa.toFixed(1)} kPa · {Math.round(analysis.meanK)} K
-          </b>
           <span>Occupancy</span>
           <b>{analysis.occupancyGroup}</b>
           <span>{worldId === 'earth' ? 'Occupant load' : 'Crew target'}</span>
@@ -204,7 +200,7 @@ export function InspectorPanel() {
       </section>
 
       <section className="estimate">
-        <div className="panel-kicker">Estimate</div>
+        <div className="panel-kicker">05 · Estimate</div>
         <div className="pills">
           {TIERS.map((t) => (
             <button key={t} className={tier === t ? 'on' : ''} onClick={() => usePlanner.getState().setBudgetTier(t)}>
