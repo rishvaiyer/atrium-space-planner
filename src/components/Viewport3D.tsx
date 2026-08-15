@@ -2,10 +2,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { Canvas, useThree } from '@react-three/fiber'
 import { ContactShadows, OrbitControls, Stars } from '@react-three/drei'
 import { catalogItem } from '../catalog'
-import { itemCollides } from '../collision'
+import { collidingItemIds, itemCollides } from '../collision'
 import { itemDims } from '../geometry'
 import { FurnitureMesh, RoomMesh } from '../scene/Furniture'
-import { LowPower } from '../lowPower'
+import { InstancedCatalog } from '../scene/InstancedFurniture'
+import { partitionInstances } from '../scene/instanceRecipes'
+import { LowPower, useLowPower } from '../lowPower'
 import { useIsMobile } from '../media'
 import { usePlanner } from '../store'
 import { planetTexture } from '../textures'
@@ -203,17 +205,39 @@ function Scene({
   const [ghost, setGhost] = useState<{ x: number; z: number } | null>(null)
   const snapOn = usePlanner((s) => s.snapOn)
   const snap = usePlanner((s) => s.snap)
+  const mobile = useLowPower()
+  const collideIds = useMemo(() => collidingItemIds(items, room), [items, room])
+  const selected = useMemo(() => new Set(selectedIds), [selectedIds])
+  const visible = useMemo(() => {
+    return items.filter((item) => {
+      const def = catalogItem(item.catalogId)
+      if (!showLighting && def.costGroup === 'lighting') return false
+      if (!showFurniture && def.costGroup !== 'lighting') return false
+      return true
+    })
+  }, [items, showFurniture, showLighting])
+  const { batches, unique } = useMemo(() => partitionInstances(visible, brand), [visible, brand])
+  const shadowKey = useMemo(() => {
+    let h = visible.length
+    for (const it of visible) h = (Math.imul(h, 31) + Math.round(it.x * 50) + Math.round(it.z * 50)) | 0
+    return h
+  }, [visible])
 
   return (
     <group>
       <RoomMesh room={room} floor={floor} wallFinish={wallFinish} showWalls={showWalls} />
-      <ContactShadows
-        position={[room.originX + room.width / 2, 0.011, room.originZ + room.depth / 2]}
-        opacity={0.38}
-        scale={Math.max(room.width, room.depth) * 1.2}
-        blur={2.2}
-        far={8}
-      />
+      {!mobile && (
+        <ContactShadows
+          key={shadowKey}
+          frames={1}
+          resolution={visible.length > 28 ? 256 : 512}
+          position={[room.originX + room.width / 2, 0.011, room.originZ + room.depth / 2]}
+          opacity={visible.length > 40 ? 0.28 : 0.38}
+          scale={Math.max(room.width, room.depth) * 1.2}
+          blur={2.2}
+          far={8}
+        />
+      )}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[room.originX + room.width / 2, 0.01, room.originZ + room.depth / 2]}
@@ -240,51 +264,39 @@ function Scene({
         <planeGeometry args={[room.width, room.depth]} />
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
-      {items.map((item) => {
-        const def = catalogItem(item.catalogId)
-        if (!showLighting && def.costGroup === 'lighting') return null
-        if (!showFurniture && def.costGroup !== 'lighting') return null
+      {batches.map((batch) => (
+        <InstancedCatalog key={batch.key} batch={batch} />
+      ))}
+      {unique.map((item) => (
+        <PlacedMesh key={item.id} item={item} brand={brand} />
+      ))}
+      {visible.map((item) => {
+        const sel = selected.has(item.id)
+        const col = collideIds.has(item.id)
+        if (!sel && !col) return null
         return (
-          <PlacedMesh
-            key={item.id}
-            item={item}
-            brand={brand}
-            selected={selectedIds.includes(item.id)}
-            collide={itemCollides(item, items, room)}
-          />
+          <group key={`mark-${item.id}`} position={[item.x, 0, item.z]} rotation={[0, item.rotation, 0]}>
+            {sel && (
+              <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[0.28, 0.34, 32]} />
+                <meshBasicMaterial color="#3b82f6" />
+              </mesh>
+            )}
+            {col && (
+              <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[0.36, 0.42, 32]} />
+                <meshBasicMaterial color="#dc2626" />
+              </mesh>
+            )}
+          </group>
         )
       })}
-      {pending && ghost && (
-        <group position={[ghost.x, 0, ghost.z]}>
-          <FurnitureMesh
-            item={{ id: '_ghost', catalogId: pending, x: ghost.x, z: ghost.z, rotation: 0 }}
-            brand={brand}
-          />
-          <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[0.22, 0.3, 24]} />
-            <meshBasicMaterial
-              color={itemCollides({ id: '_ghost', catalogId: pending, x: ghost.x, z: ghost.z, rotation: 0 }, items, room) ? '#dc2626' : '#3b82f6'}
-              transparent
-              opacity={0.85}
-            />
-          </mesh>
-        </group>
-      )}
+      {pending && ghost && <GhostPreview catalogId={pending} x={ghost.x} z={ghost.z} items={items} room={room} />}
     </group>
   )
 }
 
-function PlacedMesh({
-  item,
-  brand,
-  selected,
-  collide,
-}: {
-  item: PlacedItem
-  brand: string
-  selected: boolean
-  collide: boolean
-}) {
+function PlacedMesh({ item, brand }: { item: PlacedItem; brand: string }) {
   return (
     <group
       name={`item-${item.id}`}
@@ -301,18 +313,36 @@ function PlacedMesh({
       }}
     >
       <FurnitureMesh item={item} brand={brand} />
-      {selected && (
-        <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.28, 0.34, 32]} />
-          <meshBasicMaterial color="#3b82f6" />
-        </mesh>
-      )}
-      {collide && (
-        <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.36, 0.42, 32]} />
-          <meshBasicMaterial color="#dc2626" />
-        </mesh>
-      )}
+    </group>
+  )
+}
+
+function GhostPreview({
+  catalogId,
+  x,
+  z,
+  items,
+  room,
+}: {
+  catalogId: string
+  x: number
+  z: number
+  items: PlacedItem[]
+  room: Room
+}) {
+  const ghostItem = { id: '_ghost', catalogId, x, z, rotation: 0 }
+  const { w, d, h } = itemDims(ghostItem)
+  const collide = itemCollides(ghostItem, items, room)
+  return (
+    <group position={[x, 0, z]}>
+      <mesh position={[0, h / 2, 0]}>
+        <boxGeometry args={[w, h, d]} />
+        <meshStandardMaterial color={collide ? '#dc2626' : '#3b82f6'} transparent opacity={0.28} depthWrite={false} />
+      </mesh>
+      <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.22, 0.3, 24]} />
+        <meshBasicMaterial color={collide ? '#dc2626' : '#3b82f6'} transparent opacity={0.85} />
+      </mesh>
     </group>
   )
 }

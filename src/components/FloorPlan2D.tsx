@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent } from 'react'
-import { itemCollides, itemsInRect, hitRotateHandle, rotateHandleOf } from '../collision'
+import { collidingItemIds, itemCollides, itemsInRect, hitRotateHandle, rotateHandleOf } from '../collision'
 import { catalogItem } from '../catalog'
 import { analyzeLayout } from '../compliance'
 import { formatMm, itemAabb, itemDims } from '../geometry'
@@ -57,6 +57,9 @@ export function FloorPlan2D() {
       return null
     }
   }, [room, items, tier, floor, cap, jurisdiction, worldId, occupancyGroup])
+
+  const collideIds = useMemo(() => collidingItemIds(items, room), [items, room])
+  const selected = useMemo(() => new Set(selectedIds), [selectedIds])
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState({ x: -1.4, y: -1.5, w: room.width + 2.8, h: room.depth + 3 })
@@ -485,11 +488,11 @@ export function FloorPlan2D() {
             <PlanItem
               key={item.id}
               item={item}
-              selected={selectedIds.includes(item.id)}
+              selected={selected.has(item.id)}
               brand={brand}
               showLabel={showLabels}
               showOccupancy={showOccupancy}
-              collide={itemCollides(item, items, room)}
+              collide={collideIds.has(item.id)}
             />
           )
         })}

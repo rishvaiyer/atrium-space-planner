@@ -40,6 +40,23 @@ export function itemCollides(item: PlacedItem, items: PlacedItem[], room: Room) 
   return itemHitsWalls(item, room) || itemHitsItems(item, items)
 }
 
+/** One pass over the room instead of N² per-item checks while rendering. */
+export function collidingItemIds(items: PlacedItem[], room: Room) {
+  const ids = new Set<string>()
+  const boxes = items.map((it) => ({ it, box: itemAabb(it) }))
+  for (const { it } of boxes) {
+    if (itemHitsWalls(it, room)) ids.add(it.id)
+  }
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      if (!boxesOverlap(boxes[i].box, boxes[j].box)) continue
+      ids.add(boxes[i].it.id)
+      ids.add(boxes[j].it.id)
+    }
+  }
+  return ids
+}
+
 export function rotateHandleOf(item: PlacedItem) {
   const { w, d } = itemDims(item)
   const dist = Math.max(w, d) / 2 + 0.24
