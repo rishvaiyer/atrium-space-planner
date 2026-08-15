@@ -1,6 +1,7 @@
 import type { CatalogItem } from './types'
 import { registerGlbItem, unregisterGlbItem } from './catalog'
 import { uid } from './geometry'
+import { measureGlb } from './glbMeasure'
 
 const DB = 'atrium-glb'
 const STORE = 'files'
@@ -113,14 +114,28 @@ export async function importGlbFiles(files: File[]) {
     const buf = await file.arrayBuffer()
     await idbPut(id, buf)
     const url = URL.createObjectURL(new Blob([buf], { type: file.type || 'model/gltf-binary' }))
+    let w = 1.2
+    let d = 1.2
+    let h = 1.2
+    let thumb: string | undefined
+    try {
+      const measured = await measureGlb(url)
+      w = measured.w
+      d = measured.d
+      h = measured.h
+      thumb = measured.thumb
+    } catch {
+      /* keep defaults */
+    }
     entries.push({
       id,
       name: file.name.replace(/\.(glb|gltf)$/i, ''),
       source: 'file',
       glbUrl: url,
-      w: 1.2,
-      d: 1.2,
-      h: 1.2,
+      w,
+      d,
+      h,
+      thumb,
     })
   }
   saveList(entries)

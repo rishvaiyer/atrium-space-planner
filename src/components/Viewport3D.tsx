@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
-import { OrbitControls, Stars } from '@react-three/drei'
+import { ContactShadows, OrbitControls, Stars } from '@react-three/drei'
 import { catalogItem } from '../catalog'
+import { itemCollides } from '../collision'
 import { itemDims } from '../geometry'
 import { FurnitureMesh, RoomMesh } from '../scene/Furniture'
 import { LowPower } from '../lowPower'
@@ -198,17 +199,39 @@ function Scene({
   brand: string
   selectedIds: string[]
 }) {
+  const pending = usePlanner((s) => s.pendingCatalogId)
+  const [ghost, setGhost] = useState<{ x: number; z: number } | null>(null)
+  const snapOn = usePlanner((s) => s.snapOn)
+  const snap = usePlanner((s) => s.snap)
+
   return (
     <group>
       <RoomMesh room={room} floor={floor} wallFinish={wallFinish} showWalls={showWalls} />
+      <ContactShadows
+        position={[room.originX + room.width / 2, 0.011, room.originZ + room.depth / 2]}
+        opacity={0.38}
+        scale={Math.max(room.width, room.depth) * 1.2}
+        blur={2.2}
+        far={8}
+      />
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[room.originX + room.width / 2, 0.01, room.originZ + room.depth / 2]}
+        onPointerMove={(e) => {
+          if (!pending) {
+            if (ghost) setGhost(null)
+            return
+          }
+          const x = snapOn ? Math.round(e.point.x / snap) * snap : e.point.x
+          const z = snapOn ? Math.round(e.point.z / snap) * snap : e.point.z
+          setGhost((g) => (g && Math.abs(g.x - x) < 0.001 && Math.abs(g.z - z) < 0.001 ? g : { x, z }))
+        }}
+        onPointerOut={() => setGhost(null)}
         onPointerDown={(e) => {
           e.stopPropagation()
           const state = usePlanner.getState()
           if (state.pendingCatalogId) {
-            state.placeItem(state.pendingCatalogId, e.point.x, e.point.z)
+            state.placeItem(state.pendingCatalogId, e.point.x, e.point.z, e.shiftKey)
           } else if (state.tool === 'select') {
             state.select(null)
           }
@@ -227,9 +250,26 @@ function Scene({
             item={item}
             brand={brand}
             selected={selectedIds.includes(item.id)}
+            collide={itemCollides(item, items, room)}
           />
         )
       })}
+      {pending && ghost && (
+        <group position={[ghost.x, 0, ghost.z]}>
+          <FurnitureMesh
+            item={{ id: '_ghost', catalogId: pending, x: ghost.x, z: ghost.z, rotation: 0 }}
+            brand={brand}
+          />
+          <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.22, 0.3, 24]} />
+            <meshBasicMaterial
+              color={itemCollides({ id: '_ghost', catalogId: pending, x: ghost.x, z: ghost.z, rotation: 0 }, items, room) ? '#dc2626' : '#3b82f6'}
+              transparent
+              opacity={0.85}
+            />
+          </mesh>
+        </group>
+      )}
     </group>
   )
 }
@@ -238,10 +278,12 @@ function PlacedMesh({
   item,
   brand,
   selected,
+  collide,
 }: {
   item: PlacedItem
   brand: string
   selected: boolean
+  collide: boolean
 }) {
   return (
     <group
@@ -252,7 +294,7 @@ function PlacedMesh({
         e.stopPropagation()
         const state = usePlanner.getState()
         if (state.pendingCatalogId) {
-          state.placeItem(state.pendingCatalogId, e.point.x, e.point.z)
+          state.placeItem(state.pendingCatalogId, e.point.x, e.point.z, e.shiftKey)
           return
         }
         state.select(item.id, e.shiftKey)
@@ -263,6 +305,12 @@ function PlacedMesh({
         <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.28, 0.34, 32]} />
           <meshBasicMaterial color="#3b82f6" />
+        </mesh>
+      )}
+      {collide && (
+        <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.36, 0.42, 32]} />
+          <meshBasicMaterial color="#dc2626" />
         </mesh>
       )}
     </group>

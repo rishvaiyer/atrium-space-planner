@@ -162,22 +162,22 @@ export default function App() {
       }
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
-        state.nudgeSelected(-1, 0)
+        state.nudgeSelected(-1, 0, e.altKey)
         return
       }
       if (e.key === 'ArrowRight') {
         e.preventDefault()
-        state.nudgeSelected(1, 0)
+        state.nudgeSelected(1, 0, e.altKey)
         return
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault()
-        state.nudgeSelected(0, -1)
+        state.nudgeSelected(0, -1, e.altKey)
         return
       }
       if (e.key === 'ArrowDown') {
         e.preventDefault()
-        state.nudgeSelected(0, 1)
+        state.nudgeSelected(0, 1, e.altKey)
         return
       }
       if (e.key === 'w' || e.key === 'W') {

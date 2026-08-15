@@ -28,6 +28,10 @@ export function applyItemTexture(root: Object3D, textureId?: string, tint?: stri
       }
       if ('roughness' in c) c.roughness = spec.roughness
       if ('metalness' in c) c.metalness = spec.metalness
+      if ('bumpMap' in c) {
+        c.bumpMap = spec.map
+        c.bumpScale = spec.bumpScale ?? 0.035
+      }
       if ('color' in c && c.color) c.color = new Color(tintColor)
       c.needsUpdate = true
       return c

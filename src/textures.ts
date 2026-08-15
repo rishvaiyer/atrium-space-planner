@@ -443,6 +443,7 @@ export interface SurfaceSpec {
   map: CanvasTexture
   roughness: number
   metalness: number
+  bumpScale?: number
 }
 
 function grain(ctx: CanvasRenderingContext2D, size: number, amount: number) {

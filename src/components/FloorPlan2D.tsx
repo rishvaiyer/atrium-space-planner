@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent } from 'react'
+import { itemCollides, itemsInRect, hitRotateHandle, rotateHandleOf } from '../collision'
 import { catalogItem } from '../catalog'
 import { analyzeLayout } from '../compliance'
 import { formatMm, itemAabb, itemDims } from '../geometry'
@@ -44,6 +45,7 @@ export function FloorPlan2D() {
   const wallStart = usePlanner((s) => s.wallStart)
   const selectedArch = usePlanner((s) => s.selectedArch)
   const [cursor, setCursor] = useState<{ x: number; z: number } | null>(null)
+  const [marquee, setMarquee] = useState<{ ax: number; az: number; bx: number; bz: number } | null>(null)
 
   const occupancyGroup = usePlanner((s) => s.occupancyGroup)
   const viewEpoch = usePlanner((s) => s.viewEpoch)
@@ -72,12 +74,14 @@ export function FloorPlan2D() {
     })
   }, [viewEpoch, room.width, room.depth, room.originX, room.originZ])
   const drag = useRef<{
-    mode: 'pan' | 'item'
+    mode: 'pan' | 'item' | 'marquee' | 'rotate'
     ids: string[]
     originId?: string
     lastX: number
     lastZ: number
     moved: boolean
+    startRot?: number
+    startAng?: number
   } | null>(null)
 
   const toWorld = (clientX: number, clientY: number, v = viewRef.current) => {
@@ -171,7 +175,7 @@ export function FloorPlan2D() {
       return
     }
     if (state.pendingCatalogId) {
-      state.placeItem(state.pendingCatalogId, p.x, p.z)
+      state.placeItem(state.pendingCatalogId, p.x, p.z, shift)
       return
     }
     const arch = hitArch(live, p.x, p.z, isCoarsePointer() ? 0.42 : 0.28)
@@ -210,6 +214,21 @@ export function FloorPlan2D() {
     }
 
     if (tool === 'select' && !pending) {
+      const sole = selectedIds.length === 1 ? items.find((it) => it.id === selectedIds[0]) : undefined
+      if (sole && hitRotateHandle(sole, p.x, p.z, isCoarsePointer() ? 0.22 : 0.16)) {
+        state.commitHistory()
+        drag.current = {
+          mode: 'rotate',
+          ids: [sole.id],
+          originId: sole.id,
+          lastX: p.x,
+          lastZ: p.z,
+          moved: true,
+          startRot: sole.rotation,
+          startAng: Math.atan2(p.x - sole.x, sole.z - p.z),
+        }
+        return
+      }
       const hit = hitTest(items, p.x, p.z, showFurniture, showLighting, slop)
       if (hit) {
         state.select(hit.id, e.shiftKey)
@@ -224,6 +243,8 @@ export function FloorPlan2D() {
         }
         return
       }
+      drag.current = { mode: 'marquee', ids: [], lastX: p.x, lastZ: p.z, moved: false }
+      return
     }
 
     if (isCoarsePointer()) {
@@ -258,12 +279,27 @@ export function FloorPlan2D() {
       return
     }
     const p = toWorld(e.clientX, e.clientY)
+    setCursor(p)
     if (tool === 'wall') {
       const s = snapOn ? snap : 0
       setCursor(snapDrawPoint(p.x, p.z, room.walls, s, wallStart ?? undefined, e.shiftKey))
     }
     const d = drag.current
     if (!d) return
+    if (d.mode === 'marquee') {
+      d.moved = true
+      setMarquee({ ax: d.lastX, az: d.lastZ, bx: p.x, bz: p.z })
+      return
+    }
+    if (d.mode === 'rotate' && d.originId && d.startRot != null && d.startAng != null) {
+      const it = usePlanner.getState().items.find((x) => x.id === d.originId)
+      if (!it) return
+      const ang = Math.atan2(p.x - it.x, it.z - p.z)
+      let next = d.startRot + (ang - d.startAng)
+      if (e.shiftKey) next = Math.round(next / (Math.PI / 12)) * (Math.PI / 12)
+      usePlanner.getState().setItemRotation(d.originId, next)
+      return
+    }
     if (d.mode === 'pan') {
       const el = wrapRef.current
       if (!el) return
@@ -292,6 +328,16 @@ export function FloorPlan2D() {
     if (pointers.current.size === 0) {
       const g = gesture.current
       const d = drag.current
+      if (d?.mode === 'marquee') {
+        const p = toWorld(e.clientX, e.clientY)
+        if (d.moved) {
+          const hits = itemsInRect(usePlanner.getState().items, { x: d.lastX, z: d.lastZ }, p)
+          usePlanner.getState().selectMany(hits.map((it) => it.id))
+        } else {
+          applyTap(p, e.shiftKey)
+        }
+        setMarquee(null)
+      }
       if (!g.pinched && g.tap && d?.mode === 'pan' && !d.moved) applyTap(g.tap, g.tap.shift)
       drag.current = null
       g.tap = null
@@ -443,9 +489,37 @@ export function FloorPlan2D() {
               brand={brand}
               showLabel={showLabels}
               showOccupancy={showOccupancy}
+              collide={itemCollides(item, items, room)}
             />
           )
         })}
+
+        {pending && cursor && tool === 'select' && (
+          <GhostItem catalogId={pending} x={snapOn ? Math.round(cursor.x / snap) * snap : cursor.x} z={snapOn ? Math.round(cursor.z / snap) * snap : cursor.z} brand={brand} items={items} room={room} />
+        )}
+
+        {marquee && (
+          <rect
+            className="marquee"
+            x={Math.min(marquee.ax, marquee.bx)}
+            y={Math.min(marquee.az, marquee.bz)}
+            width={Math.abs(marquee.bx - marquee.ax)}
+            height={Math.abs(marquee.bz - marquee.az)}
+          />
+        )}
+
+        {selectedIds.length === 1 &&
+          (() => {
+            const it = items.find((x) => x.id === selectedIds[0])
+            if (!it) return null
+            const h = rotateHandleOf(it)
+            return (
+              <g className="rot-handle" transform={`translate(${h.x}, ${h.z})`}>
+                <circle r={0.09} />
+                <line x1={it.x - h.x} y1={it.z - h.z} x2={0} y2={0} />
+              </g>
+            )
+          })()}
 
         {showNotesLayer &&
           notes.map((n) => (
@@ -531,18 +605,51 @@ function hitTest(
   return undefined
 }
 
+function GhostItem({
+  catalogId,
+  x,
+  z,
+  brand,
+  items,
+  room,
+}: {
+  catalogId: string
+  x: number
+  z: number
+  brand: string
+  items: PlacedItem[]
+  room: Room
+}) {
+  const item: PlacedItem = { id: '_ghost', catalogId, x, z, rotation: 0 }
+  return (
+    <PlanItem
+      item={item}
+      selected={false}
+      brand={brand}
+      showLabel={false}
+      showOccupancy={false}
+      ghost
+      collide={itemCollides(item, items, room)}
+    />
+  )
+}
+
 function PlanItem({
   item,
   selected,
   brand,
   showLabel,
   showOccupancy,
+  collide,
+  ghost,
 }: {
   item: PlacedItem
   selected: boolean
   brand: string
   showLabel: boolean
   showOccupancy: boolean
+  collide?: boolean
+  ghost?: boolean
 }) {
   const def = catalogItem(item.catalogId)
   const { w, d } = itemDims(item)
@@ -556,7 +663,7 @@ function PlanItem({
   return (
     <g
       transform={`translate(${item.x}, ${item.z}) rotate(${(item.rotation * 180) / Math.PI})`}
-      className={`plan-item ${selected ? 'selected' : ''} ${def.plan}`}
+      className={`plan-item ${selected ? 'selected' : ''} ${def.plan} ${collide ? 'collide' : ''} ${ghost ? 'ghost' : ''}`}
       {...tip(
         `${def.name} · ${w.toFixed(2)} × ${d.toFixed(2)} m${item.texture ? ` · ${item.texture}` : ''}${selected ? ' — drag to move, R to rotate' : ' — click to select'}`,
       )}
@@ -569,7 +676,11 @@ function PlanItem({
       )}
       {def.plan === 'stool' && <circle r={w / 2} fill={fill} />}
       {def.plan === 'round' && <circle r={w / 2} fill={fill} />}
-      {def.plan === 'rect' && item.catalogId !== 'piano' && item.catalogId !== 'grand-piano' && (
+      {def.plan === 'rect' &&
+        item.catalogId !== 'piano' &&
+        item.catalogId !== 'grand-piano' &&
+        item.catalogId !== 'rug' &&
+        item.catalogId !== 'fireplace' && (
         <rect x={-w / 2} y={-d / 2} width={w} height={d} rx={0.02} fill={fill} />
       )}
       {(item.catalogId === 'piano' || item.catalogId === 'grand-piano') && (
@@ -631,6 +742,24 @@ function PlanItem({
           <rect x={-w / 2} y={-d / 2} width={w} height={d} fill="#cfd5d8" />
           <rect x={-w / 2 + 0.06} y={-d / 2 + 0.06} width={w - 0.12} height={d - 0.12} fill="none" stroke="#5a656c" strokeWidth={0.03} />
         </>
+      )}
+      {item.catalogId === 'rug' && (
+        <ellipse cx={0} cy={0} rx={w / 2} ry={d / 2} fill={item.finish ?? '#8a4a3a'} opacity={0.85} />
+      )}
+      {(item.catalogId === 'plant-tall' || item.catalogId === 'planter' || item.catalogId === 'vase') && (
+        <>
+          <circle r={Math.min(w, d) / 2} fill="#2f6a46" />
+          <circle r={Math.min(w, d) / 5} fill="#8a4a32" />
+        </>
+      )}
+      {item.catalogId === 'fireplace' && (
+        <>
+          <rect x={-w / 2} y={-d / 2} width={w} height={d} fill="#6a6158" />
+          <rect x={-w / 4} y={-d / 5} width={w / 2} height={d / 2} fill="#1a1410" />
+        </>
+      )}
+      {(item.catalogId === 'trash' || item.catalogId === 'coat-rack') && (
+        <circle r={Math.min(w, d) / 2} fill="#4a4e52" />
       )}
       {showOccupancy && def.isSeat && (
         <circle r={0.08} className="occ" cy={0} />

@@ -34,7 +34,7 @@ export function OverlayTools({ compact = false }: { compact?: boolean }) {
         </button>
       ))}
       <span className="sep" />
-      <button type="button" aria-label="Rotate selected" {...tip('Rotate selected 90°', 'R')} onClick={() => usePlanner.getState().rotateSelected(Math.PI / 2)}>
+      <button type="button" aria-label="Rotate selected" {...tip('Rotate selected 90°, or drag the blue handle on the plan for any angle. Shift snaps 15°.', 'R')} onClick={() => usePlanner.getState().rotateSelected(Math.PI / 2)}>
         <Icon name="rotate" />
       </button>
       <button type="button" aria-label="Duplicate selected" {...tip('Duplicate selected', '⌘D')} onClick={() => usePlanner.getState().duplicateSelected()}>

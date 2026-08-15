@@ -89,13 +89,15 @@ export interface PlannerState {
   cameraMode: CameraMode
   viewEpoch: number
   select: (id: string | null, additive?: boolean) => void
+  selectMany: (ids: string[]) => void
   setTool: (tool: Tool) => void
   setCategory: (category: Category) => void
   setPending: (catalogId: string | null) => void
-  placeItem: (catalogId: string, x: number, z: number) => void
+  placeItem: (catalogId: string, x: number, z: number, keepPending?: boolean) => void
   moveItems: (ids: string[], x: number, z: number, asCenterOf?: string) => void
   updateItem: (id: string, patch: Partial<PlacedItem>) => void
   rotateSelected: (delta: number) => void
+  setItemRotation: (id: string, rotation: number) => void
   deleteSelected: () => void
   duplicateSelected: () => void
   setFinish: (id: string, finish: string) => void
@@ -137,7 +139,7 @@ export interface PlannerState {
   toProject: () => ProjectFile
   applyProject: (file: ProjectFile) => void
   fitView: () => void
-  nudgeSelected: (dx: number, dz: number) => void
+  nudgeSelected: (dx: number, dz: number, fine?: boolean) => void
   selectArch: (sel: ArchSel | null) => void
   addWall: (ax: number, az: number, bx: number, bz: number) => void
   setWallStart: (pt: { x: number; z: number } | null) => void
@@ -215,6 +217,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
       return { selectedIds: [id], selectedArch: null }
     })
   },
+  selectMany: (ids) => set({ selectedIds: ids, selectedArch: null }),
 
   setTool: (tool) =>
     set((state) =>
@@ -230,7 +233,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
         : { pendingCatalogId: catalogId, tool: 'select' },
     ),
 
-  placeItem: (catalogId, x, z) => {
+  placeItem: (catalogId, x, z, keepPending = false) => {
     const state = get()
     const snap = state.snapOn ? state.snap : 0
     const def = catalogItem(catalogId)
@@ -242,12 +245,15 @@ export const usePlanner = create<PlannerState>((set, get) => ({
       z: snapTo(z, snap),
       rotation: 0,
       glbUrl: remote,
+      w: def.glbUrl ? def.w : undefined,
+      d: def.glbUrl ? def.d : undefined,
+      h: def.glbUrl ? def.h : undefined,
     }
     state.commitHistory()
     set({
       items: [...state.items, item],
       selectedIds: [item.id],
-      pendingCatalogId: null,
+      pendingCatalogId: keepPending ? catalogId : null,
     })
   },
 
@@ -280,6 +286,12 @@ export const usePlanner = create<PlannerState>((set, get) => ({
         selectedIds.includes(it.id) ? { ...it, rotation: it.rotation + delta } : it,
       ),
     })
+  },
+
+  setItemRotation: (id, rotation) => {
+    set((state) => ({
+      items: state.items.map((it) => (it.id === id ? { ...it, rotation } : it)),
+    }))
   },
 
   deleteSelected: () => {
@@ -332,6 +344,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   },
 
   setFinish: (id, finish) => {
+    get().commitHistory()
     set((state) => ({
       items: state.items.map((it) => (it.id === id ? { ...it, finish } : it)),
     }))
@@ -365,7 +378,8 @@ export const usePlanner = create<PlannerState>((set, get) => ({
     })
   },
   addNote: (x, z) => {
-    const { notes, snapOn, snap } = get()
+    const { notes, snapOn, snap, commitHistory } = get()
+    commitHistory()
     set({
       notes: [
         ...notes,
@@ -378,7 +392,10 @@ export const usePlanner = create<PlannerState>((set, get) => ({
       ],
     })
   },
-  removeNote: (id) => set((s) => ({ notes: s.notes.filter((n) => n.id !== id) })),
+  removeNote: (id) => {
+    get().commitHistory()
+    set((s) => ({ notes: s.notes.filter((n) => n.id !== id) }))
+  },
   setTimeOfDay: (timeOfDay) => set((s) => (s.timeOfDay === timeOfDay ? s : { timeOfDay })),
   setBudgetTier: (budgetTier) => set((s) => (s.budgetTier === budgetTier ? s : { budgetTier })),
   setJurisdiction: (jurisdiction) =>
@@ -458,21 +475,24 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   setProjectName: (projectName) => set((s) => (s.projectName === projectName ? s : { projectName })),
   setCameraMode: (cameraMode) => set((s) => (s.cameraMode === cameraMode ? s : { cameraMode })),
   fitView: () => set((s) => ({ viewEpoch: s.viewEpoch + 1 })),
-  setRoom: (patch) =>
-    set((s) => {
-      const width = clamp(patch.width ?? s.room.width, 3, 28)
-      const depth = clamp(patch.depth ?? s.room.depth, 3, 22)
-      const wallHeight = clamp(patch.wallHeight ?? s.room.wallHeight, 2.2, 6)
-      if (width === s.room.width && depth === s.room.depth && wallHeight === s.room.wallHeight) return s
-      const room = reshapeBox({ ...s.room, wallHeight }, width, depth)
-      return { room: { ...room, wallHeight }, viewEpoch: s.viewEpoch + 1 }
-    }),
-  nudgeSelected: (dx, dz) => {
-    const { selectedIds, items, snap } = get()
+  setRoom: (patch) => {
+    const s = get()
+    const width = clamp(patch.width ?? s.room.width, 3, 28)
+    const depth = clamp(patch.depth ?? s.room.depth, 3, 22)
+    const wallHeight = clamp(patch.wallHeight ?? s.room.wallHeight, 2.2, 6)
+    if (width === s.room.width && depth === s.room.depth && wallHeight === s.room.wallHeight) return
+    s.commitHistory()
+    const room = reshapeBox({ ...s.room, wallHeight }, width, depth)
+    set({ room: { ...room, wallHeight }, viewEpoch: s.viewEpoch + 1 })
+  },
+  nudgeSelected: (dx, dz, fine = false) => {
+    const { selectedIds, items, snap, commitHistory } = get()
     if (!selectedIds.length) return
+    commitHistory()
+    const step = fine ? 0.02 : snap
     set({
       items: items.map((it) =>
-        selectedIds.includes(it.id) ? { ...it, x: it.x + dx * snap, z: it.z + dz * snap } : it,
+        selectedIds.includes(it.id) ? { ...it, x: it.x + dx * step, z: it.z + dz * step } : it,
       ),
     })
   },

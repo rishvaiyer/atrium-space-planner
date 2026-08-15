@@ -460,7 +460,11 @@ html[data-theme='dark'] .viewport2d { background: #141416; }
 }
 .plan-svg .wall-preview circle { fill: #2563eb; }
 .plan-svg .swing { fill: none; stroke: #6b7788; stroke-width: 0.03; stroke-dasharray: 0.08 0.06; }
-.plan-svg .plan-item { stroke: #1b222c; stroke-width: 0.018; }
+.plan-svg .plan-item.collide { stroke: #dc2626; stroke-width: 0.04; }
+.plan-svg .plan-item.ghost { opacity: 0.5; pointer-events: none; }
+.plan-svg .marquee { fill: rgba(37, 99, 235, 0.12); stroke: #2563eb; stroke-width: 0.025; stroke-dasharray: 0.06 0.04; }
+.plan-svg .rot-handle circle { fill: #fff; stroke: #2563eb; stroke-width: 0.03; }
+.plan-svg .rot-handle line { stroke: #2563eb; stroke-width: 0.02; }
 .plan-svg .plan-item.selected .sel { fill: none; stroke: #2563eb; stroke-width: 0.03; stroke-dasharray: 0.05 0.04; }
 .plan-svg .dims, .plan-svg .dim {
   fill: #4a5564; stroke: #4a5564; stroke-width: 0.02;

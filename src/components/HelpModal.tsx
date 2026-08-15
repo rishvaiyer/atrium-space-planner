@@ -17,17 +17,17 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
           <section>
             <h3>Place furniture</h3>
             <p>
-              Open <strong>Library</strong>, pick a fixture, then tap the 2D plan or 3D floor. The next click drops it.
-              Search works across names, SKUs, and tags (try “piano”).
+              Open <strong>Library</strong>, pick a fixture, then move over the plan — a ghost shows where it will land
+              (red if it hits a wall or another piece). Click to drop. Hold <strong>Shift</strong> to place another of
+              the same. Drag a box to multi-select. Drag the blue handle to rotate any angle (Shift snaps 15°). Arrows
+              nudge; Alt arrows nudge 2 cm.
             </p>
           </section>
           <section>
             <h3>Real 3D models</h3>
             <p>
-              Built-in items use detailed meshes (piano keys, sofa cushions, beds). For photoreal GLBs, open the{' '}
-              <strong>Models</strong> tab: choose files from your computer, a whole folder of <code>.glb</code> files, or
-              search Polyfork (paste your token from polyfork.dev/account). The browser cannot read your Desktop by itself —
-              you pick the folder once.
+              Built-in items use detailed meshes (piano keys, sofa cushions, beds) with contact shadows. Imported GLBs
+              use their real size and a thumbnail. Open the <strong>Models</strong> tab for files, a folder, or Polyfork.
             </p>
           </section>
           <section>
