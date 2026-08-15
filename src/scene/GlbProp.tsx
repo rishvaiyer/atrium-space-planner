@@ -3,6 +3,7 @@ import { useGLTF } from '@react-three/drei'
 import { Box3, Group, Vector3 } from 'three'
 
 import { applyItemTexture } from './applyTexture'
+import { loadPbr } from '../pbr'
 
 export function GlbProp({
   url,
@@ -41,6 +42,11 @@ export function GlbProp({
     clone.position.z -= center.z
     clone.position.y -= fitted.min.y
     applyItemTexture(clone, textureId, tint)
+    if (textureId) {
+      void loadPbr(textureId).then((pbr) => {
+        if (pbr) applyItemTexture(clone, textureId, tint, pbr)
+      })
+    }
   }, [clone, w, d, h, textureId, tint])
 
   return (

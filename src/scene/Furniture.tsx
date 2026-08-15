@@ -3,6 +3,7 @@ import { catalogItem, getGlbUrl } from '../catalog'
 import { itemDims } from '../geometry'
 import { useLowPower } from '../lowPower'
 import { floorTexture, marbleTexture, wallTexture, woodTexture } from '../textures'
+import { usePbr } from '../pbr'
 import type { FloorFinish, PlacedItem, Room, WallFinish } from '../types'
 import { doorHinge, pointOnWall, wallDir, wallPieces } from '../walls'
 import { GlbSafe } from './GlbProp'
@@ -597,6 +598,7 @@ export function RoomMesh({
   wallFinish: WallFinish
   showWalls: boolean
 }) {
+  const pbrWall = usePbr(wallFinish, 3)
   const plaster = useMemo(() => wallTexture(wallFinish), [wallFinish])
   const { width: w, depth: d, originX: ox, originZ: oz, wallHeight: h, wallThickness: t } = room
 
@@ -618,7 +620,14 @@ export function RoomMesh({
                 return (
                   <mesh key={`${wall.id}-${p.s}`} position={[pos.x, h / 2, pos.z]} rotation={[0, -angle, 0]} receiveShadow>
                     <boxGeometry args={[p.e - p.s, h, t]} />
-                    <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
+                    <meshStandardMaterial
+                      map={pbrWall?.map ?? plaster}
+                      normalMap={pbrWall?.normalMap}
+                      roughnessMap={pbrWall?.roughnessMap}
+                      color="#eef3f8"
+                      roughness={pbrWall?.roughness ?? 0.9}
+                      metalness={pbrWall?.metalness ?? 0}
+                    />
                   </mesh>
                 )
               })}
@@ -667,6 +676,15 @@ export function RoomMesh({
 
 function FloorMat({ kind }: { kind: FloorFinish }) {
   const map = useMemo(() => floorTexture(kind), [kind])
+  const pbr = usePbr(kind, 4)
   const rough = kind === 'oak' || kind === 'walnut' || kind === 'herringbone' ? 0.55 : kind === 'marble' ? 0.2 : 0.4
-  return <meshStandardMaterial map={map} roughness={rough} />
+  return (
+    <meshStandardMaterial
+      map={pbr?.map ?? map}
+      normalMap={pbr?.normalMap}
+      roughnessMap={pbr?.roughnessMap}
+      roughness={pbr?.roughness ?? rough}
+      metalness={pbr?.metalness ?? 0.02}
+    />
+  )
 }

@@ -107,13 +107,14 @@ export default function App() {
       }
       if (meta && e.key.toLowerCase() === 's') {
         e.preventDefault()
-        const project = state.toProject()
-        const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' })
-        const a = document.createElement('a')
-        a.href = URL.createObjectURL(blob)
-        a.download = `${project.name.replace(/\s+/g, '-').toLowerCase()}.atrium.json`
-        a.click()
-        URL.revokeObjectURL(a.href)
+        void usePlanner.getState().exportProject().then((project) => {
+          const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' })
+          const a = document.createElement('a')
+          a.href = URL.createObjectURL(blob)
+          a.download = `${project.name.replace(/\s+/g, '-').toLowerCase()}.atrium.json`
+          a.click()
+          URL.revokeObjectURL(a.href)
+        })
         return
       }
       if (meta && e.key.toLowerCase() === 'z') {

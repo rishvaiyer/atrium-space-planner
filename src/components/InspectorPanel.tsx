@@ -430,7 +430,7 @@ function ObjectEditor({ item, brand }: { item: PlacedItem; brand: string }) {
       </label>
       <label className="field">
         Texture
-        <span className="field-hint">Applies to this piece in 3D — woods, stone, metal, fabric, leather, and more.</span>
+        <span className="field-hint">Photoreal PBR maps (color + normal + roughness) wrap this piece in 3D.</span>
         <div className="pills tight">
           <button type="button" className={!item.texture ? 'on' : ''} {...tip('Clear the surface map')} onClick={() => patch({ texture: undefined })}>
             none

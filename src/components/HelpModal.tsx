@@ -26,16 +26,17 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
           <section>
             <h3>Real 3D models</h3>
             <p>
-              Built-in items use detailed meshes (piano keys, sofa cushions, beds) with contact shadows. Imported GLBs
-              use their real size and a thumbnail. Open the <strong>Models</strong> tab for files, a folder, or Polyfork.
+              Imported GLBs keep their real size. <strong>Save project</strong> embeds those models in the JSON (up to a
+              size cap) so you can Open the file on another computer. Polyfork items save as links. Huge files may be
+              skipped — keep the original GLB if the save notes they were omitted.
             </p>
           </section>
           <section>
             <h3>Textures</h3>
             <p>
-              Select any fixture, open <strong>Spec</strong>, and pick a surface: oak, marble, brass, velvet, leather, and
-              dozens more. The map wraps the real 3D mesh (and imported GLBs), not a replacement box. Pair with Color to
-              tint. Set Texture to none to restore the default finish.
+              Select any fixture, open <strong>Spec</strong>, and pick a photoreal PBR surface (oak, marble, brass,
+              velvet, leather, and the rest). Color, normal, and roughness maps wrap the real mesh. Floors and walls
+              use the same library.
             </p>
           </section>
           <section>

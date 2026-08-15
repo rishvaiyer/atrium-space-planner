@@ -1,4 +1,5 @@
 import type { BudgetTier, Category, FloorFinish, Jurisdiction, Note, PlacedItem, Room, WallFinish } from './types'
+import type { PortableGlb } from './glbLibrary'
 import { migrateRoom } from './walls'
 
 export const PROJECT_KEY = 'atrium-project-v1'
@@ -19,6 +20,8 @@ export interface ProjectFile {
   budgetCap: number
   jurisdiction: Jurisdiction
   category: Category
+  /** Embedded / remote GLBs so the file opens on another machine. */
+  glbAssets?: PortableGlb[]
 }
 
 export function downloadJson(filename: string, data: unknown) {

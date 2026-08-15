@@ -47,6 +47,7 @@ export function toPlaceExport(options: {
         color: it.finish ?? null,
         texture: it.texture ?? null,
         extra: it.extra ?? null,
+        glbUrl: def.glbUrl && !def.glbUrl.startsWith('blob:') ? def.glbUrl : it.glbUrl ?? null,
         use,
         sittable: use === 'sit',
         sleepable: use === 'sleep',

@@ -176,3 +176,116 @@ export function removeGlb(id: string) {
   unregisterGlbItem(id)
   saveList(listGlb().filter((e) => e.id !== id))
 }
+
+const MAX_EMBED = 2_500_000
+const MAX_TOTAL = 12_000_000
+
+export interface PortableGlb {
+  id: string
+  name: string
+  source: 'file' | 'polyfork'
+  w: number
+  d: number
+  h: number
+  thumb?: string
+  polyforkId?: string
+  url?: string
+  data?: string
+  omitted?: boolean
+}
+
+function bufToB64(buf: ArrayBuffer) {
+  const bytes = new Uint8Array(buf)
+  let bin = ''
+  const step = 0x8000
+  for (let i = 0; i < bytes.length; i += step) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + step))
+  }
+  return btoa(bin)
+}
+
+function b64ToBuf(b64: string) {
+  const bin = atob(b64)
+  const out = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  return out.buffer
+}
+
+export async function exportPortableGlbs(usedIds: string[]): Promise<PortableGlb[]> {
+  const wanted = new Set(usedIds.filter((id) => id.startsWith('glb:') || id.startsWith('pf:')))
+  const out: PortableGlb[] = []
+  let total = 0
+  for (const e of listGlb()) {
+    if (!wanted.has(e.id)) continue
+    const rec: PortableGlb = {
+      id: e.id,
+      name: e.name,
+      source: e.source,
+      w: e.w,
+      d: e.d,
+      h: e.h,
+      thumb: e.thumb,
+      polyforkId: e.polyforkId,
+    }
+    if (e.source === 'polyfork') {
+      rec.url = e.glbUrl.startsWith('blob:')
+        ? `https://polyfork.dev/cdn/${e.polyforkId}.glb`
+        : e.glbUrl
+      out.push(rec)
+      continue
+    }
+    const buf = await idbGet(e.id)
+    if (!buf || buf.byteLength > MAX_EMBED || total + buf.byteLength > MAX_TOTAL) {
+      rec.omitted = true
+      out.push(rec)
+      continue
+    }
+    rec.data = bufToB64(buf)
+    total += buf.byteLength
+    out.push(rec)
+  }
+  return out
+}
+
+export async function importPortableGlbs(assets: PortableGlb[]) {
+  const entries = listGlb()
+  for (const a of assets) {
+    if (a.data) {
+      const buf = b64ToBuf(a.data)
+      await idbPut(a.id, buf)
+      const url = URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' }))
+      const next: GlbEntry = {
+        id: a.id,
+        name: a.name,
+        source: a.source,
+        glbUrl: url,
+        w: a.w,
+        d: a.d,
+        h: a.h,
+        thumb: a.thumb,
+        polyforkId: a.polyforkId,
+      }
+      const i = entries.findIndex((e) => e.id === a.id)
+      if (i >= 0) entries[i] = next
+      else entries.push(next)
+      continue
+    }
+    if (a.url) {
+      const next: GlbEntry = {
+        id: a.id,
+        name: a.name,
+        source: a.source,
+        glbUrl: a.url,
+        w: a.w,
+        d: a.d,
+        h: a.h,
+        thumb: a.thumb,
+        polyforkId: a.polyforkId,
+      }
+      const i = entries.findIndex((e) => e.id === a.id)
+      if (i >= 0) entries[i] = next
+      else entries.push(next)
+    }
+  }
+  saveList(entries)
+}

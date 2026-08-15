@@ -1,0 +1,2 @@
+Photoreal PBR maps in this folder are from ambientCG (https://ambientcg.com/), licensed CC0 1.0.
+Resized to 512×512 JPEG for the ATRIUM planner.

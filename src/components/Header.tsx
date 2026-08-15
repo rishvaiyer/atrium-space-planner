@@ -30,8 +30,9 @@ export function Header({
   const focusMode = usePlanner((s) => s.focusMode)
 
   const exportJson = () => {
-    const project = usePlanner.getState().toProject()
-    downloadJson(`${project.name.replace(/\s+/g, '-').toLowerCase()}.atrium.json`, project)
+    void usePlanner.getState().exportProject().then((project) => {
+      downloadJson(`${project.name.replace(/\s+/g, '-').toLowerCase()}.atrium.json`, project)
+    })
   }
 
   const exportCsv = () => {
@@ -118,7 +119,7 @@ export function Header({
             <button type="button" {...tip('Open an ATRIUM or design JSON file', '⌘O')} onClick={onImport}>
               Open file
             </button>
-            <button type="button" {...tip('Download this project as JSON', '⌘S')} onClick={exportJson}>
+            <button type="button" {...tip('Download this project as JSON, including imported GLBs', '⌘S')} onClick={exportJson}>
               Save project
             </button>
             <button type="button" {...tip('Download a cost takeoff spreadsheet')} onClick={exportCsv}>

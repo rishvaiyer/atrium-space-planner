@@ -851,15 +851,6 @@ export function itemSurface(kind: string): SurfaceSpec | null {
   }
 }
 
-const previewCache = new Map<string, string>()
-
 export function texturePreview(id: string): string {
-  const hit = previewCache.get(id)
-  if (hit) return hit
-  const spec = itemSurface(id)
-  if (!spec) return ''
-  const img = spec.map.image as HTMLCanvasElement
-  const url = img.toDataURL('image/png')
-  previewCache.set(id, url)
-  return url
+  return `${import.meta.env.BASE_URL || './'}tex/${id}/color.jpg`
 }

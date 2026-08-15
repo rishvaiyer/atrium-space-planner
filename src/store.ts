@@ -19,6 +19,7 @@ import type { WorldId } from './worlds'
 import { worldOf } from './worlds'
 import type { ProjectFile } from './project'
 import { templateById } from './templates'
+import { exportPortableGlbs, importPortableGlbs } from './glbLibrary'
 import {
   cloneRoom,
   insertWall,
@@ -137,6 +138,7 @@ export interface PlannerState {
   setRoom: (patch: Partial<Pick<Room, 'width' | 'depth' | 'wallHeight'>>) => void
   loadTemplate: (id: string) => void
   toProject: () => ProjectFile
+  exportProject: () => Promise<ProjectFile>
   applyProject: (file: ProjectFile) => void
   fitView: () => void
   nudgeSelected: (dx: number, dz: number, fine?: boolean) => void
@@ -540,6 +542,11 @@ export const usePlanner = create<PlannerState>((set, get) => ({
       category: s.category,
     }
   },
+  exportProject: async () => {
+    const project = get().toProject()
+    project.glbAssets = await exportPortableGlbs(project.items.map((it) => it.catalogId))
+    return project
+  },
   applyProject: (file) => {
     get().commitHistory()
     set((s) => ({
@@ -564,6 +571,11 @@ export const usePlanner = create<PlannerState>((set, get) => ({
       worldId: 'earth',
       viewEpoch: s.viewEpoch + 1,
     }))
+    if (file.glbAssets?.length) {
+      void importPortableGlbs(file.glbAssets).then(() => {
+        set((s) => ({ viewEpoch: s.viewEpoch + 1 }))
+      })
+    }
   },
   selectArch: (sel) => set({ selectedArch: sel, selectedIds: sel ? [] : get().selectedIds }),
   setWallStart: (pt) => set({ wallStart: pt }),
