@@ -4,14 +4,12 @@ export function Toolbar({ compact = false }: { compact?: boolean }) {
   const tool = usePlanner((s) => s.tool)
   const snapOn = usePlanner((s) => s.snapOn)
   const snap = usePlanner((s) => s.snap)
-  const flags = usePlanner((s) => ({
-    walls: s.showWalls,
-    furniture: s.showFurniture,
-    electrical: s.showElectrical,
-    egress: s.showEgress,
-    dims: s.showDimensions,
-    grid: s.showGrid,
-  }))
+  const walls = usePlanner((s) => s.showWalls)
+  const furniture = usePlanner((s) => s.showFurniture)
+  const electrical = usePlanner((s) => s.showElectrical)
+  const egress = usePlanner((s) => s.showEgress)
+  const dims = usePlanner((s) => s.showDimensions)
+  const grid = usePlanner((s) => s.showGrid)
 
   return (
     <footer className="toolbar">
@@ -25,12 +23,12 @@ export function Toolbar({ compact = false }: { compact?: boolean }) {
       </div>
       {!compact && (
         <div className="cluster">
-          <Toggle k="showWalls" label="Walls" on={flags.walls} />
-          <Toggle k="showFurniture" label="Fixtures" on={flags.furniture} />
-          <Toggle k="showElectrical" label="Electrical" on={flags.electrical} />
-          <Toggle k="showEgress" label="Egress" on={flags.egress} />
-          <Toggle k="showDimensions" label="Dimensions" on={flags.dims} />
-          <Toggle k="showGrid" label="Grid" on={flags.grid} />
+          <Toggle k="showWalls" label="Walls" on={walls} />
+          <Toggle k="showFurniture" label="Fixtures" on={furniture} />
+          <Toggle k="showElectrical" label="Electrical" on={electrical} />
+          <Toggle k="showEgress" label="Egress" on={egress} />
+          <Toggle k="showDimensions" label="Dimensions" on={dims} />
+          <Toggle k="showGrid" label="Grid" on={grid} />
         </div>
       )}
       <div className="cluster">
