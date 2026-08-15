@@ -304,7 +304,13 @@ function PlanItem({
   brand: string
 }) {
   const def = catalogItem(item.catalogId)
-  const fill = item.finish ?? (def.plan === 'bar' ? '#c45c32' : def.plan === 'chair' || def.plan === 'stool' || def.plan === 'banquette' ? brand : '#b08958')
+  const fill =
+    item.finish ??
+    (def.plan === 'bar'
+      ? '#3a4250'
+      : def.plan === 'chair' || def.plan === 'stool' || def.plan === 'banquette'
+        ? brand
+        : '#9aa3ad')
   return (
     <g
       transform={`translate(${item.x}, ${item.z}) rotate(${(item.rotation * 180) / Math.PI})`}
@@ -312,8 +318,8 @@ function PlanItem({
     >
       {def.plan === 'chair' && (
         <>
-          <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} rx={0.03} fill={fill} />
-          <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={0.06} fill="#2a2620" />
+          <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} rx={0.04} fill={fill} />
+          <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={0.05} fill="#111318" />
         </>
       )}
       {def.plan === 'stool' && <circle r={def.w / 2} fill={fill} />}
@@ -322,25 +328,25 @@ function PlanItem({
         <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} rx={0.02} fill={fill} />
       )}
       {def.plan === 'desk' && (
-        <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} fill="#a67c52" />
+        <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} rx={0.02} fill="#6b7380" />
       )}
       {def.plan === 'bar' && (
         <>
           <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} fill={fill} />
-          <rect x={-def.w / 2} y={def.d / 2 - 0.08} width={def.w} height={0.08} fill="#2a2620" />
+          <rect x={-def.w / 2} y={def.d / 2 - 0.08} width={def.w} height={0.08} fill="#111318" />
         </>
       )}
       {def.plan === 'banquette' && (
         <>
           <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} fill={fill} />
-          <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={0.1} fill="#2a2620" />
+          <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={0.08} fill="#111318" />
         </>
       )}
       {def.plan === 'pendant' && (
         <>
-          <circle r={0.12} fill="none" stroke="#6a5a40" strokeWidth={0.03} />
-          <line x1={-0.08} y1={0} x2={0.08} y2={0} stroke="#6a5a40" strokeWidth={0.02} />
-          <line x1={0} y1={-0.08} x2={0} y2={0.08} stroke="#6a5a40" strokeWidth={0.02} />
+          <circle r={0.12} fill="none" stroke="#5b8cff" strokeWidth={0.03} />
+          <line x1={-0.08} y1={0} x2={0.08} y2={0} stroke="#5b8cff" strokeWidth={0.02} />
+          <line x1={0} y1={-0.08} x2={0} y2={0.08} stroke="#5b8cff" strokeWidth={0.02} />
         </>
       )}
       {def.plan === 'fridge' && (

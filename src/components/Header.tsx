@@ -11,14 +11,14 @@ export function Header({ compact = false }: { compact?: boolean }) {
         <span className="mark">A</span>
         <div>
           <strong>ATRIUM</strong>
-          {!compact && <em>Commercial space planner</em>}
+          {!compact && <em>Spatial studio</em>}
         </div>
       </div>
       {!compact && (
         <div className="project">
-          <span className="proj-name">Harbour Café — Fit-out 04</span>
+          <span className="proj-name">Nimbus Loft — Live model</span>
           <span className="badge">{jurisdiction}</span>
-          <span className="badge quiet">{seats} seats placed</span>
+          <span className="badge quiet">{seats} seats</span>
         </div>
       )}
       <div className="header-actions">

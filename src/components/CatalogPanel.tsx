@@ -17,7 +17,7 @@ export function CatalogPanel() {
 
   return (
     <aside className="panel catalog">
-      <div className="panel-kicker">Catalog</div>
+      <div className="panel-kicker">Library</div>
       <div className="cats">
         {CATS.map((c) => (
           <button

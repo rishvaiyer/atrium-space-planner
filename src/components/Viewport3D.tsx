@@ -12,10 +12,10 @@ import { GLBoundary } from './GLBoundary'
 const CAMERA = { position: [12.5, 7.4, 12] as [number, number, number], fov: 38, near: 0.1, far: 80 }
 const CAMERA_MOBILE = { ...CAMERA, fov: 46 }
 const ORBIT_TARGET: [number, number, number] = [5.6, 0.4, 4.2]
-const BG = '#8aa3b0'
-const FOG_ARGS: [string, number, number] = [BG, 18, 42]
-const HEMI_SKY = '#f2f0ea'
-const HEMI_GROUND = '#6b5c4c'
+const BG = '#151a22'
+const FOG_ARGS: [string, number, number] = [BG, 16, 38]
+const HEMI_SKY = '#d5e4f5'
+const HEMI_GROUND = '#2a313c'
 const WRAP: CSSProperties = { width: '100%', height: '100%' }
 const GL = {
   antialias: false,
@@ -217,7 +217,7 @@ function PlacedMesh({
       {selected && (
         <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.28, 0.34, 32]} />
-          <meshBasicMaterial color="#c9a36a" />
+          <meshBasicMaterial color="#7ee0d6" />
         </mesh>
       )}
     </group>
@@ -252,7 +252,7 @@ function IsoView({
     iso(0, room.depth),
   ]
   const floorFill =
-    floor === 'oak' ? '#b9895a' : floor === 'terrazzo' ? '#c5c0b4' : floor === 'tile' ? '#cfc6b8' : '#9a9a96'
+    floor === 'oak' ? '#8d7358' : floor === 'terrazzo' ? '#b8bdc6' : floor === 'tile' ? '#c5ccd4' : '#8d939c'
 
   const xs = floorPts.map((p) => p.x)
   const ys = floorPts.map((p) => p.y)
@@ -269,7 +269,7 @@ function IsoView({
         <polygon
           points={floorPts.map((p) => `${p.x},${p.y}`).join(' ')}
           fill={floorFill}
-          stroke="#6a5340"
+          stroke="#3a4452"
           strokeWidth={0.04}
         />
         {items.map((item) => {
@@ -281,7 +281,7 @@ function IsoView({
           const c = iso(item.x + def.w / 2, item.z + def.d / 2)
           const d = iso(item.x - def.w / 2, item.z + def.d / 2)
           const lift = def.h * 0.42
-          const fill = item.finish ?? (def.costGroup === 'lighting' ? '#e8d9a8' : brand)
+          const fill = item.finish ?? (def.costGroup === 'lighting' ? '#9ec5ff' : brand)
           const selected = selectedIds.includes(item.id)
           return (
             <g
@@ -295,7 +295,7 @@ function IsoView({
               <polygon
                 points={`${a.x},${a.y - lift} ${b.x},${b.y - lift} ${c.x},${c.y - lift} ${d.x},${d.y - lift}`}
                 fill={fill}
-                stroke="#2a2620"
+                stroke="#0e1116"
                 strokeWidth={0.03}
                 opacity={def.costGroup === 'lighting' ? 0.55 : 0.95}
               />
@@ -320,7 +320,7 @@ function sunFromTime(hour: number) {
   return {
     position: [Math.cos(ang) * 14, elevation * 16 + 2, Math.sin(ang) * 10 - 4] as [number, number, number],
     intensity: dusk ? 0.35 + elevation * 0.8 : 1.1 + elevation * 1.4,
-    color: dusk ? '#ffb07a' : '#fff1dc',
+    color: dusk ? '#b7c8ff' : '#e8f1ff',
     ambient: dusk ? 0.18 : 0.32,
     hemi: dusk ? 0.35 : 0.55,
   }

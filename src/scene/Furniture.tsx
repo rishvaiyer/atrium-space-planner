@@ -375,42 +375,42 @@ export function RoomMesh({
           {south.map((p) => (
             <mesh key={`s${p.s}`} position={[(p.s + p.e) / 2, h / 2, -t / 2]} receiveShadow>
               <boxGeometry args={[p.e - p.s, h, t]} />
-              <meshStandardMaterial map={plaster} color="#f3ebe0" roughness={0.9} />
+              <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
             </mesh>
           ))}
           {north.map((p) => (
             <mesh key={`n${p.s}`} position={[(p.s + p.e) / 2, h / 2, d + t / 2]} receiveShadow>
               <boxGeometry args={[p.e - p.s, h, t]} />
-              <meshStandardMaterial map={plaster} color="#f3ebe0" roughness={0.9} />
+              <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
             </mesh>
           ))}
           {west.map((p) => (
             <mesh key={`w${p.s}`} position={[-t / 2, h / 2, (p.s + p.e) / 2]} receiveShadow>
               <boxGeometry args={[t, h, p.e - p.s]} />
-              <meshStandardMaterial map={plaster} color="#f3ebe0" roughness={0.9} />
+              <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
             </mesh>
           ))}
           {east.map((p) => (
             <mesh key={`e${p.s}`} position={[w + t / 2, h / 2, (p.s + p.e) / 2]} receiveShadow>
               <boxGeometry args={[t, h, p.e - p.s]} />
-              <meshStandardMaterial map={plaster} color="#f3ebe0" roughness={0.9} />
+              <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
             </mesh>
           ))}
           <mesh position={[-t / 2, h / 2, -t / 2]} receiveShadow>
             <boxGeometry args={[t, h, t]} />
-            <meshStandardMaterial map={plaster} color="#f3ebe0" roughness={0.9} />
+            <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
           </mesh>
           <mesh position={[w + t / 2, h / 2, -t / 2]} receiveShadow>
             <boxGeometry args={[t, h, t]} />
-            <meshStandardMaterial map={plaster} color="#f3ebe0" roughness={0.9} />
+            <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
           </mesh>
           <mesh position={[-t / 2, h / 2, d + t / 2]} receiveShadow>
             <boxGeometry args={[t, h, t]} />
-            <meshStandardMaterial map={plaster} color="#f3ebe0" roughness={0.9} />
+            <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
           </mesh>
           <mesh position={[w + t / 2, h / 2, d + t / 2]} receiveShadow>
             <boxGeometry args={[t, h, t]} />
-            <meshStandardMaterial map={plaster} color="#f3ebe0" roughness={0.9} />
+            <meshStandardMaterial map={plaster} color="#eef3f8" roughness={0.9} />
           </mesh>
           {room.windows.map((win) => {
             const along = win.wall === 'n' || win.wall === 's'

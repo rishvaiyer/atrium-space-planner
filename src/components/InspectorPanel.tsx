@@ -5,7 +5,7 @@ import { formatMm, formatMoney } from '../geometry'
 import { usePlanner } from '../store'
 import type { BudgetTier, FloorFinish, Jurisdiction } from '../types'
 
-const BRANDS = ['#c45c32', '#2f4f4a', '#1f3a5f', '#7a3e6d', '#c9a36a', '#d8d2c4']
+const BRANDS = ['#7ee0d6', '#8ab4ff', '#d7dde6', '#111318', '#c4b5fd', '#fb7185']
 const FLOORS: FloorFinish[] = ['oak', 'terrazzo', 'concrete', 'tile']
 const TIERS: BudgetTier[] = ['budget', 'standard', 'premium']
 const CODES: Jurisdiction[] = ['IBC', 'NBC', 'Eurocode']
