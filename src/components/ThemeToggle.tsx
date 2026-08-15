@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { applyTheme, readTheme, toggleTheme, type Theme } from '../theme'
 import { Icon } from './Icon'
+import { tip } from './tipAttrs'
 
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>(() => (typeof document === 'undefined' ? 'light' : readTheme()))
@@ -24,7 +25,7 @@ export function ThemeToggle() {
       className="icon-btn"
       onClick={() => setTheme(toggleTheme())}
       aria-label={`Switch to ${next} mode`}
-      title={`Switch to ${next} mode`}
+      {...tip(`Switch to ${next} mode`)}
     >
       <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
     </button>

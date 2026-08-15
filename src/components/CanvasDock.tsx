@@ -1,18 +1,19 @@
 import { usePlanner } from '../store'
 import { Icon } from './Icon'
+import { tip } from './tipAttrs'
 
 const LAYERS = [
-  ['showWalls', 'Walls'],
-  ['showOpenings', 'Openings'],
-  ['showFurniture', 'Fixtures'],
-  ['showLighting', 'Lights'],
-  ['showElectrical', 'Power'],
-  ['showEgress', 'Egress'],
-  ['showOccupancy', 'Seats'],
-  ['showLabels', 'Labels'],
-  ['showNotes', 'Notes'],
-  ['showDimensions', 'Dims'],
-  ['showGrid', 'Grid'],
+  ['showWalls', 'Walls', 'Show or hide walls'],
+  ['showOpenings', 'Openings', 'Show or hide doors and windows'],
+  ['showFurniture', 'Fixtures', 'Show or hide furniture'],
+  ['showLighting', 'Lights', 'Show or hide lights'],
+  ['showElectrical', 'Power', 'Show or hide power marks'],
+  ['showEgress', 'Egress', 'Show exit paths'],
+  ['showOccupancy', 'Seats', 'Mark seats on the plan'],
+  ['showLabels', 'Labels', 'Name each fixture on the plan'],
+  ['showNotes', 'Notes', 'Show or hide notes'],
+  ['showDimensions', 'Dims', 'Show room dimensions'],
+  ['showGrid', 'Grid', 'Show the snap grid'],
 ] as const
 
 export function CanvasDock() {
@@ -46,19 +47,25 @@ export function CanvasDock() {
 
   return (
     <div className="canvas-dock">
-      <button type="button" className={`snap ${snapOn ? 'on' : ''}`} title="Cycle grid snap" onClick={() => usePlanner.getState().cycleSnap()}>
+      <button
+        type="button"
+        className={`snap ${snapOn ? 'on' : ''}`}
+        {...tip('Cycle grid snap: 50 / 100 / 200 mm')}
+        onClick={() => usePlanner.getState().cycleSnap()}
+      >
         <Icon name="snap" />
         Snap {Math.round(snap * 1000)} mm
       </button>
-      <button type="button" title="Fit the plan to the room (F)" onClick={() => usePlanner.getState().fitView()}>
+      <button type="button" {...tip('Fit the plan to the room', 'F')} onClick={() => usePlanner.getState().fitView()}>
         Fit plan
       </button>
       <div className="dock-layers">
-        {LAYERS.map(([k, label]) => (
+        {LAYERS.map(([k, label, hint]) => (
           <button
             key={k}
             type="button"
             className={layerOn[k] ? 'on' : ''}
+            {...tip(hint)}
             onClick={() => usePlanner.getState().setFlag(k, !layerOn[k])}
           >
             {label}

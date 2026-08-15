@@ -8,6 +8,7 @@ import { downloadJson } from '../project'
 import { usePlanner } from '../store'
 import type { BudgetTier, FloorFinish, Jurisdiction, PlacedItem, WallFinish } from '../types'
 import { wallById, wallLen } from '../walls'
+import { tip } from './tipAttrs'
 
 const BRANDS = ['#3b82f6', '#111111', '#efeae2', '#c2410c', '#6b5344', '#0f766e']
 const FLOORS: FloorFinish[] = [
@@ -74,7 +75,7 @@ export function InspectorPanel() {
             <div className="cap-label">Cap {formatMoney(analysis.cap)}</div>
             <div className="pills">
               {TIERS.map((t) => (
-                <button key={t} type="button" className={tier === t ? 'on' : ''} onClick={() => usePlanner.getState().setBudgetTier(t)}>
+                <button key={t} type="button" className={tier === t ? 'on' : ''} {...tip(`${t} furniture pricing`)} onClick={() => usePlanner.getState().setBudgetTier(t)}>
                   {t}
                 </button>
               ))}
@@ -239,6 +240,7 @@ export function InspectorPanel() {
               max={20}
               step={0.25}
               value={time}
+              {...tip('Sun angle in the 3D view')}
               onChange={(e) => usePlanner.getState().setTimeOfDay(Number(e.target.value))}
             />
             <span>{hourLabel}</span>
@@ -248,7 +250,7 @@ export function InspectorPanel() {
           Floor
           <div className="pills">
             {FLOORS.map((f) => (
-              <button key={f} type="button" className={floor === f ? 'on' : ''} onClick={() => usePlanner.getState().setFloorFinish(f)}>
+              <button key={f} type="button" className={floor === f ? 'on' : ''} {...tip(`Floor finish: ${f}`)} onClick={() => usePlanner.getState().setFloorFinish(f)}>
                 {f}
               </button>
             ))}
@@ -258,7 +260,7 @@ export function InspectorPanel() {
           Walls
           <div className="pills">
             {WALLS.map((w) => (
-              <button key={w} type="button" className={wall === w ? 'on' : ''} onClick={() => usePlanner.getState().setWallFinish(w)}>
+              <button key={w} type="button" className={wall === w ? 'on' : ''} {...tip(`Wall finish: ${w}`)} onClick={() => usePlanner.getState().setWallFinish(w)}>
                 {w}
               </button>
             ))}
@@ -275,6 +277,7 @@ export function InspectorPanel() {
                 style={{ background: c }}
                 onClick={() => usePlanner.getState().setBrandColor(c)}
                 aria-label={c}
+                {...tip(`Brand color ${c}`)}
               />
             ))}
           </div>
@@ -312,6 +315,7 @@ export function InspectorPanel() {
                         key={c}
                         type="button"
                         className={jurisdiction === c ? 'on' : ''}
+                        {...tip(`Run checks against ${c}`)}
                         onClick={() => usePlanner.getState().setJurisdiction(c)}
                       >
                         {c}
@@ -413,6 +417,7 @@ function ObjectEditor({ item, brand }: { item: PlacedItem; brand: string }) {
               style={{ background: c }}
               onClick={() => patch({ finish: c })}
               aria-label={c}
+              {...tip(`Tint this fixture ${c}`)}
             />
           ))}
         </div>
@@ -427,7 +432,7 @@ function ObjectEditor({ item, brand }: { item: PlacedItem; brand: string }) {
         Texture
         <span className="field-hint">Applies to this piece in 3D — woods, stone, metal, fabric, leather, and more.</span>
         <div className="pills tight">
-          <button type="button" className={!item.texture ? 'on' : ''} onClick={() => patch({ texture: undefined })}>
+          <button type="button" className={!item.texture ? 'on' : ''} {...tip('Clear the surface map')} onClick={() => patch({ texture: undefined })}>
             none
           </button>
         </div>
@@ -446,11 +451,12 @@ function ObjectEditor({ item, brand }: { item: PlacedItem; brand: string }) {
       </label>
       {err && <p className="empty">{err}</p>}
       <div className="pills">
-        <button type="button" onClick={applyCode}>
+        <button type="button" {...tip('Apply the JSON fields to this fixture')} onClick={applyCode}>
           Apply code
         </button>
         <button
           type="button"
+          {...tip('Reload JSON from the current fixture')}
           onClick={() => {
             setRaw(JSON.stringify(objectCode(item), null, 2))
             setErr('')
@@ -460,6 +466,7 @@ function ObjectEditor({ item, brand }: { item: PlacedItem; brand: string }) {
         </button>
         <button
           type="button"
+          {...tip('Download this fixture as JSON')}
           onClick={() => downloadJson(`${def.id}.object.json`, objectCode(item))}
         >
           Export object
@@ -484,7 +491,7 @@ function TexturePicker({ value, onPick }: { value?: string; onPick: (id: string)
                 key={t.id}
                 type="button"
                 className={`tex-swatch ${value === t.id ? 'on' : ''}`}
-                title={t.name}
+                {...tip(`${t.name} — wrap this fixture in a ${t.group} surface`)}
                 onClick={() => onPick(t.id)}
               >
                 <span className="tex-thumb" style={{ backgroundImage: `url(${texturePreview(t.id)})` }} />

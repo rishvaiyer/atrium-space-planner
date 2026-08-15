@@ -6,6 +6,7 @@ import { isCoarsePointer } from '../media'
 import { pointInPoly, polygonArea, polygonCentroid } from '../spaces'
 import { usePlanner } from '../store'
 import type { PlacedItem, Room, WallSeg } from '../types'
+import { tip } from './tipAttrs'
 import {
   nearestWall,
   pointOnWall,
@@ -556,6 +557,9 @@ function PlanItem({
     <g
       transform={`translate(${item.x}, ${item.z}) rotate(${(item.rotation * 180) / Math.PI})`}
       className={`plan-item ${selected ? 'selected' : ''} ${def.plan}`}
+      {...tip(
+        `${def.name} · ${w.toFixed(2)} × ${d.toFixed(2)} m${item.texture ? ` · ${item.texture}` : ''}${selected ? ' — drag to move, R to rotate' : ' — click to select'}`,
+      )}
     >
       {def.plan === 'chair' && (
         <>

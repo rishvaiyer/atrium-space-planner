@@ -1,3 +1,5 @@
+import { tip } from './tipAttrs'
+
 export function HelpModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="modal-scrim" onClick={onClose} role="presentation">
@@ -7,7 +9,7 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
             <div className="panel-kicker">ATRIUM</div>
             <h2 id="help-title">How to plan a space</h2>
           </div>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close help">
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close help" {...tip('Close help')}>
             ×
           </button>
         </header>

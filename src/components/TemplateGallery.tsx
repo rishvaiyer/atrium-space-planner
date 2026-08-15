@@ -1,5 +1,6 @@
 import { TEMPLATES } from '../templates'
 import { usePlanner } from '../store'
+import { tip } from './tipAttrs'
 
 export function TemplateGallery({ onClose }: { onClose: () => void }) {
   return (
@@ -10,7 +11,7 @@ export function TemplateGallery({ onClose }: { onClose: () => void }) {
             <div className="panel-kicker">New project</div>
             <h2>Start from a room</h2>
           </div>
-          <button type="button" onClick={onClose}>
+          <button type="button" onClick={onClose} {...tip('Close without changing the project')}>
             Close
           </button>
         </header>
@@ -20,6 +21,7 @@ export function TemplateGallery({ onClose }: { onClose: () => void }) {
               key={t.id}
               type="button"
               className="template-card"
+              {...tip(`${t.blurb} — ${t.room.width} × ${t.room.depth} m`)}
               onClick={() => {
                 usePlanner.getState().loadTemplate(t.id)
                 onClose()

@@ -4,6 +4,7 @@ import { addPolyforkAsset, hydrateGlbLibrary, importGlbFiles, listGlb, removeGlb
 import { glbUrlFor, polyforkKey, searchPolyfork, setPolyforkKey, type PolyforkAsset } from '../polyfork'
 import { usePlanner } from '../store'
 import type { Category } from '../types'
+import { tip } from './tipAttrs'
 
 const CATS: { id: Category; label: string }[] = [
   { id: 'restaurant', label: 'F&B' },
@@ -93,10 +94,10 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
         </div>
       </header>
       <div className="cats">
-        <button type="button" className={tab === 'stock' ? 'on' : ''} onClick={() => setTab('stock')}>
+        <button type="button" className={tab === 'stock' ? 'on' : ''} {...tip('Built-in furniture and fixtures')} onClick={() => setTab('stock')}>
           Catalog
         </button>
-        <button type="button" className={tab === 'models' ? 'on' : ''} onClick={() => setTab('models')}>
+        <button type="button" className={tab === 'models' ? 'on' : ''} {...tip('Import GLB files or search Polyfork')} onClick={() => setTab('models')}>
           Models
         </button>
       </div>
@@ -104,7 +105,7 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
         <>
           <div className="cats">
             {CATS.map((c) => (
-              <button key={c.id} type="button" className={c.id === active ? 'on' : ''} onClick={() => setCategory(c.id)}>
+              <button key={c.id} type="button" className={c.id === active ? 'on' : ''} {...tip(`${c.label} fixtures`)} onClick={() => setCategory(c.id)}>
                 {c.label}
               </button>
             ))}
@@ -117,7 +118,16 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
           <ul className="catalog-list">
             {items.map((item) => (
               <li key={item.id}>
-                <button type="button" className={`catalog-row ${pending === item.id ? 'on' : ''}`} onClick={() => pick(item.id)}>
+                <button
+                  type="button"
+                  className={`catalog-row ${pending === item.id ? 'on' : ''}`}
+                  {...tip(
+                    pending === item.id
+                      ? `Selected — tap the 2D plan or 3D floor to place ${item.name}`
+                      : `${item.name} · ${item.w.toFixed(2)} × ${item.d.toFixed(2)} × ${item.h.toFixed(2)} m — click, then tap the plan`,
+                  )}
+                  onClick={() => pick(item.id)}
+                >
                   <span className={`glyph ${item.plan}`} />
                   <span className="meta">
                     <strong>{item.name}</strong>
@@ -138,7 +148,7 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
             Import GLB files from a folder on your computer, or pull props from Polyfork. Then tap the plan to place.
           </p>
           <div className="file-row">
-            <label className="file-btn">
+            <label className="file-btn" {...tip('Choose .glb or .gltf files from your computer')}>
               Import GLB files
               <input
                 type="file"
@@ -151,7 +161,7 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
                 }}
               />
             </label>
-            <label className="file-btn">
+            <label className="file-btn" {...tip('Pick a folder of models — the browser cannot read your Desktop by itself')}>
               Import folder
               <input
                 type="file"
@@ -170,7 +180,12 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
             <ul className="catalog-list">
               {library.map((e) => (
                 <li key={e.id} className="lib-row">
-                  <button type="button" className={`catalog-row ${pending === e.id ? 'on' : ''}`} onClick={() => pick(e.id)}>
+                  <button
+                    type="button"
+                    className={`catalog-row ${pending === e.id ? 'on' : ''}`}
+                    {...tip(`${e.name} — click, then tap the plan to place`)}
+                    onClick={() => pick(e.id)}
+                  >
                     {e.thumb ? <img className="glyph-img" src={e.thumb} alt="" /> : <span className="glyph rect" />}
                     <span className="meta">
                       <strong>{e.name}</strong>
@@ -180,7 +195,7 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
                   <button
                     type="button"
                     className="icon-btn"
-                    title="Remove from library"
+                    {...tip('Remove from this browser’s model library')}
                     onClick={() => {
                       removeGlb(e.id)
                       setLibrary(listGlb())
@@ -201,20 +216,21 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
               onChange={(e) => setPfKey(e.target.value)}
               placeholder="Bearer token"
               autoComplete="off"
+              {...tip('Paste your Polyfork API token from polyfork.dev/account')}
             />
           </label>
           <label className="field">
             Search props
             <input value={pfQ} onChange={(e) => setPfQ(e.target.value)} placeholder="chair, lamp, sofa…" onKeyDown={(e) => e.key === 'Enter' && void runPolyfork()} />
           </label>
-          <button type="button" className="file-btn wide" disabled={pfBusy} onClick={() => void runPolyfork()}>
+          <button type="button" className="file-btn wide" disabled={pfBusy} {...tip('Search free and Pro props on polyfork.dev')} onClick={() => void runPolyfork()}>
             {pfBusy ? 'Searching…' : 'Search Polyfork'}
           </button>
           {pfErr && <p className="hint bad">{pfErr}. You can still import local GLB files.</p>}
           <ul className="catalog-list">
             {pfHits.map((a) => (
               <li key={a.id}>
-                <button type="button" className="catalog-row" onClick={() => addPf(a)}>
+                <button type="button" className="catalog-row" {...tip(`Add ${a.title} to the library and place it`)} onClick={() => addPf(a)}>
                   {a.thumbnail ? <img className="glyph-img" src={a.thumbnail} alt="" /> : <span className="glyph rect" />}
                   <span className="meta">
                     <strong>{a.title}</strong>

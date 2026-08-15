@@ -7,6 +7,7 @@ import { downloadJson, downloadText } from '../project'
 import { usePlanner } from '../store'
 import { Icon } from './Icon'
 import { ThemeToggle } from './ThemeToggle'
+import { tip } from './tipAttrs'
 
 export function Header({
   compact = false,
@@ -77,21 +78,24 @@ export function Header({
   return (
     <header className={`header ${focusMode ? 'focus' : ''}`}>
       <div className="brand">
-        <span className="mark">A</span>
+        <span className="mark" {...tip('ATRIUM space planner')}>
+          A
+        </span>
         <input
           className="proj-input"
           value={name}
           aria-label="Project name"
+          {...tip('Rename this project')}
           onChange={(e) => usePlanner.getState().setProjectName(e.target.value)}
         />
         {!compact && (
-          <span className="meta-line">
+          <span className="meta-line" {...tip('Room size and seated count')}>
             {room.width.toFixed(1)} × {room.depth.toFixed(1)} m · {seats} seats
           </span>
         )}
       </div>
       <div className="header-actions">
-        <button type="button" title="Start a new project from a room template" onClick={onTemplates}>
+        <button type="button" {...tip('Start a new project from a room template', '⌘N')} onClick={onTemplates}>
           New project
         </button>
         {compact ? (
@@ -108,29 +112,29 @@ export function Header({
           />
         ) : (
           <>
-            <button type="button" title="Command palette (⌘K)" onClick={onPalette}>
+            <button type="button" {...tip('Search commands and templates', '⌘K')} onClick={onPalette}>
               Commands
             </button>
-            <button type="button" title="Open an ATRIUM or design JSON file (⌘O)" onClick={onImport}>
+            <button type="button" {...tip('Open an ATRIUM or design JSON file', '⌘O')} onClick={onImport}>
               Open file
             </button>
-            <button type="button" title="Download this project as JSON (⌘S)" onClick={exportJson}>
+            <button type="button" {...tip('Download this project as JSON', '⌘S')} onClick={exportJson}>
               Save project
             </button>
-            <button type="button" title="Download a cost takeoff spreadsheet" onClick={exportCsv}>
+            <button type="button" {...tip('Download a cost takeoff spreadsheet')} onClick={exportCsv}>
               Cost CSV
             </button>
-            <button type="button" title="Open a printable plan, cost, and code sheet" onClick={printBoard}>
+            <button type="button" {...tip('Open a printable plan, cost, and code sheet')} onClick={printBoard}>
               Print board
             </button>
-            <button type="button" title="Export sit-ready place JSON" onClick={exportPlace}>
+            <button type="button" {...tip('Export sit-ready place JSON for other apps')} onClick={exportPlace}>
               Export place
             </button>
             <span className="sep" />
             <button
               type="button"
               className={showLibrary && !focusMode ? 'on' : ''}
-              title="Show or hide the fixture library"
+              {...tip('Show or hide the fixture library')}
               onClick={() => usePlanner.getState().setFlag('showLibrary', !showLibrary)}
             >
               Library
@@ -138,7 +142,7 @@ export function Header({
             <button
               type="button"
               className={showSpec && !focusMode ? 'on' : ''}
-              title="Show or hide room specs and capex"
+              {...tip('Show or hide specs, capex, and textures')}
               onClick={() => usePlanner.getState().setFlag('showSpec', !showSpec)}
             >
               Spec
@@ -146,22 +150,22 @@ export function Header({
             <button
               type="button"
               className={focusMode ? 'on' : ''}
-              title="Hide side panels for presenting"
+              {...tip('Hide side panels for presenting')}
               onClick={() => usePlanner.getState().setFlag('focusMode', !focusMode)}
             >
               Present
             </button>
           </>
         )}
-        <button type="button" className="icon-btn" title="Undo (⌘Z)" aria-label="Undo" onClick={() => usePlanner.getState().undo()}>
+        <button type="button" className="icon-btn" aria-label="Undo" {...tip('Undo last change', '⌘Z')} onClick={() => usePlanner.getState().undo()}>
           <Icon name="undo" />
         </button>
         {!compact && (
-          <button type="button" className="icon-btn" title="Redo (⇧⌘Z)" aria-label="Redo" onClick={() => usePlanner.getState().redo()}>
+          <button type="button" className="icon-btn" aria-label="Redo" {...tip('Redo', '⇧⌘Z')} onClick={() => usePlanner.getState().redo()}>
             <Icon name="redo" />
           </button>
         )}
-        <button type="button" className="icon-btn" title="Help (?)" aria-label="Help" onClick={onHelp}>
+        <button type="button" className="icon-btn" aria-label="Help" {...tip('How to plan a space', '?')} onClick={onHelp}>
           ?
         </button>
         <ThemeToggle />
@@ -190,6 +194,7 @@ function MoreMenu({ items }: { items: { label: string; run: () => void }[] }) {
         className={`icon-btn ${open ? 'on' : ''}`}
         aria-label="More"
         aria-expanded={open}
+        {...tip('More actions')}
         onClick={() => setOpen((v) => !v)}
       >
         <Icon name="more" />
@@ -200,6 +205,7 @@ function MoreMenu({ items }: { items: { label: string; run: () => void }[] }) {
             <li key={item.label}>
               <button
                 type="button"
+                {...tip(item.label)}
                 onClick={() => {
                   item.run()
                   setOpen(false)

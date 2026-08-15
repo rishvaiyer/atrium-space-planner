@@ -1,6 +1,7 @@
 import { usePlanner } from '../store'
 import type { Tool } from '../types'
 import { Icon } from './Icon'
+import { tip } from './tipAttrs'
 
 const TOOLS: { id: Tool; label: string; key: string; hint: string; icon: 'select' | 'pan' | 'measure' | 'wall' | 'door' | 'window' | 'paint' | 'stamp' | 'note' }[] = [
   { id: 'select', label: 'Select', key: 'V', hint: 'Select and move fixtures', icon: 'select' },
@@ -25,21 +26,21 @@ export function OverlayTools({ compact = false }: { compact?: boolean }) {
           key={t.id}
           type="button"
           className={tool === t.id ? 'on' : ''}
-          title={`${t.hint} (${t.key})`}
           aria-label={t.label}
+          {...tip(t.hint, t.key)}
           onClick={() => usePlanner.getState().setTool(t.id)}
         >
           <Icon name={t.icon} />
         </button>
       ))}
       <span className="sep" />
-      <button type="button" title="Rotate selected 90° (R)" aria-label="Rotate selected" onClick={() => usePlanner.getState().rotateSelected(Math.PI / 2)}>
+      <button type="button" aria-label="Rotate selected" {...tip('Rotate selected 90°', 'R')} onClick={() => usePlanner.getState().rotateSelected(Math.PI / 2)}>
         <Icon name="rotate" />
       </button>
-      <button type="button" title="Duplicate selected (⌘D)" aria-label="Duplicate selected" onClick={() => usePlanner.getState().duplicateSelected()}>
+      <button type="button" aria-label="Duplicate selected" {...tip('Duplicate selected', '⌘D')} onClick={() => usePlanner.getState().duplicateSelected()}>
         <Icon name="copy" />
       </button>
-      <button type="button" className="danger" title="Delete selected" aria-label="Delete selected" onClick={() => usePlanner.getState().deleteSelected()}>
+      <button type="button" className="danger" aria-label="Delete selected" {...tip('Delete selected', '⌫')} onClick={() => usePlanner.getState().deleteSelected()}>
         <Icon name="trash" />
       </button>
     </div>

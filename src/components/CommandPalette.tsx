@@ -7,6 +7,7 @@ import { downloadJson } from '../project'
 import { TEMPLATES } from '../templates'
 import { usePlanner } from '../store'
 import { toggleTheme } from '../theme'
+import { tip } from './tipAttrs'
 
 export function CommandPalette({ onClose, onOpenTemplates, onHelp }: { onClose: () => void; onOpenTemplates: () => void; onHelp?: () => void }) {
   const [q, setQ] = useState('')
@@ -107,6 +108,7 @@ export function CommandPalette({ onClose, onOpenTemplates, onHelp }: { onClose: 
                   c.run()
                   onClose()
                 }}
+                {...tip(c.label)}
               >
                 {c.label}
               </button>

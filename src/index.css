@@ -75,6 +75,34 @@ button {
   touch-action: manipulation;
 }
 
+.ui-tip {
+  position: fixed;
+  z-index: 90;
+  transform: translate(-50%, -100%);
+  max-width: min(280px, calc(100vw - 24px));
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.ui-tip.below { transform: translate(-50%, 8px); }
+.ui-tip kbd {
+  flex: none;
+  font: 600 10px/1 'IBM Plex Mono', ui-monospace, monospace;
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  opacity: 0.92;
+}
+
 button:hover { background: var(--hover); }
 button.on {
   background: var(--accent-soft);

@@ -5,6 +5,8 @@ import { CommandPalette } from './components/CommandPalette'
 import { FloorPlan2D } from './components/FloorPlan2D'
 import { GLBoundary } from './components/GLBoundary'
 import { Header } from './components/Header'
+import { TooltipHost } from './components/Tip'
+import { tip } from './components/tipAttrs'
 import { HelpModal } from './components/HelpModal'
 import { InspectorPanel } from './components/InspectorPanel'
 import { OverlayTools } from './components/OverlayTools'
@@ -286,16 +288,16 @@ export default function App() {
       </div>
       {mobile && !focusMode && (
         <nav className="mobile-tabs">
-          <button type="button" className={tab === 'plan' ? 'on' : ''} onClick={() => setTab('plan')}>
+          <button type="button" className={tab === 'plan' ? 'on' : ''} {...tip('2D floor plan')} onClick={() => setTab('plan')}>
             Plan
           </button>
-          <button type="button" className={tab === 'view3d' ? 'on' : ''} onClick={() => setTab('view3d')}>
+          <button type="button" className={tab === 'view3d' ? 'on' : ''} {...tip('3D view of the room')} onClick={() => setTab('view3d')}>
             3D
           </button>
-          <button type="button" className={tab === 'catalog' ? 'on' : ''} onClick={() => setTab('catalog')}>
+          <button type="button" className={tab === 'catalog' ? 'on' : ''} {...tip('Fixture library')} onClick={() => setTab('catalog')}>
             Library
           </button>
-          <button type="button" className={tab === 'inspect' ? 'on' : ''} onClick={() => setTab('inspect')}>
+          <button type="button" className={tab === 'inspect' ? 'on' : ''} {...tip('Specs, cost, and textures')} onClick={() => setTab('inspect')}>
             Spec
           </button>
         </nav>
@@ -309,6 +311,7 @@ export default function App() {
       )}
       {templates && <TemplateGallery onClose={() => setTemplates(false)} />}
       {help && <HelpModal onClose={() => setHelp(false)} />}
+      <TooltipHost />
     </div>
   )
 }
@@ -318,7 +321,19 @@ function ViewCameras() {
   return (
     <div className="cam-switch">
       {(['orbit', 'eye', 'top'] as const).map((id) => (
-        <button key={id} type="button" className={mode === id ? 'on' : ''} title={`Camera: ${id}`} onClick={() => usePlanner.getState().setCameraMode(id)}>
+        <button
+          key={id}
+          type="button"
+          className={mode === id ? 'on' : ''}
+          {...tip(
+            id === 'orbit'
+              ? 'Orbit camera — drag to look around'
+              : id === 'eye'
+                ? 'Eye-level camera, standing height'
+                : 'Top-down camera',
+          )}
+          onClick={() => usePlanner.getState().setCameraMode(id)}
+        >
           {id === 'orbit' ? 'Orbit' : id === 'eye' ? 'Eye' : 'Top'}
         </button>
       ))}
