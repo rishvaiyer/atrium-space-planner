@@ -106,7 +106,9 @@ export const usePlanner = create<PlannerState>((set, get) => ({
 
   select: (id, additive = false) => {
     set((state) => {
-      if (!id) return { selectedIds: [] }
+      if (!id) {
+        return state.selectedIds.length ? { selectedIds: [] } : state
+      }
       if (additive) {
         return {
           selectedIds: state.selectedIds.includes(id)
@@ -114,13 +116,24 @@ export const usePlanner = create<PlannerState>((set, get) => ({
             : [...state.selectedIds, id],
         }
       }
+      if (state.selectedIds.length === 1 && state.selectedIds[0] === id) return state
       return { selectedIds: [id] }
     })
   },
 
-  setTool: (tool) => set({ tool, pendingCatalogId: null, measure: { a: null, b: null } }),
-  setCategory: (category) => set({ category }),
-  setPending: (catalogId) => set({ pendingCatalogId: catalogId, tool: 'select' }),
+  setTool: (tool) =>
+    set((state) =>
+      state.tool === tool && !state.pendingCatalogId && !state.measure.a && !state.measure.b
+        ? state
+        : { tool, pendingCatalogId: null, measure: { a: null, b: null } },
+    ),
+  setCategory: (category) => set((state) => (state.category === category ? state : { category })),
+  setPending: (catalogId) =>
+    set((state) =>
+      state.pendingCatalogId === catalogId && state.tool === 'select'
+        ? state
+        : { pendingCatalogId: catalogId, tool: 'select' },
+    ),
 
   placeItem: (catalogId, x, z) => {
     const state = get()
@@ -200,12 +213,14 @@ export const usePlanner = create<PlannerState>((set, get) => ({
     }))
   },
 
-  setBrandColor: (brandColor) => set({ brandColor }),
-  setFloorFinish: (floorFinish) => set({ floorFinish }),
-  setTimeOfDay: (timeOfDay) => set({ timeOfDay }),
-  setBudgetTier: (budgetTier) => set({ budgetTier }),
-  setJurisdiction: (jurisdiction) => set({ jurisdiction }),
-  setFlag: (key, value) => set({ [key]: value }),
+  setBrandColor: (brandColor) => set((s) => (s.brandColor === brandColor ? s : { brandColor })),
+  setFloorFinish: (floorFinish) => set((s) => (s.floorFinish === floorFinish ? s : { floorFinish })),
+  setTimeOfDay: (timeOfDay) => set((s) => (s.timeOfDay === timeOfDay ? s : { timeOfDay })),
+  setBudgetTier: (budgetTier) => set((s) => (s.budgetTier === budgetTier ? s : { budgetTier })),
+  setJurisdiction: (jurisdiction) =>
+    set((s) => (s.jurisdiction === jurisdiction ? s : { jurisdiction })),
+  setFlag: (key, value) =>
+    set((state) => (state[key] === value ? state : { [key]: value })),
 
   setMeasurePoint: (point) => {
     const { measure } = get()

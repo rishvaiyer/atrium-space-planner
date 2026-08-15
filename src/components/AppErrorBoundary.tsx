@@ -1,4 +1,4 @@
-import { Component, type ReactNode } from 'react'
+import { Component, type ErrorInfo, type ReactNode } from 'react'
 
 export class AppErrorBoundary extends Component<
   { children: ReactNode },
@@ -10,6 +10,10 @@ export class AppErrorBoundary extends Component<
     return { message: error instanceof Error ? error.message : 'The planner failed to start.' }
   }
 
+  componentDidCatch(error: unknown, info: ErrorInfo) {
+    console.warn('ATRIUM crashed', error, info.componentStack)
+  }
+
   render() {
     if (this.state.message) {
       return (
@@ -17,6 +21,9 @@ export class AppErrorBoundary extends Component<
           <h1>ATRIUM</h1>
           <p>The planner hit an error and stopped drawing.</p>
           <pre>{this.state.message}</pre>
+          <button type="button" onClick={() => this.setState({ message: null })}>
+            Reload planner
+          </button>
         </div>
       )
     }

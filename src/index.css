@@ -651,6 +651,13 @@ input[type='range'] {
   border-radius: 8px;
 }
 
+.crash button {
+  margin-top: 16px;
+  color: #2c2822;
+  background: #efe4d0;
+  border-color: #b7a58a;
+}
+
 .boot-3d,
 .webgl-fallback {
   height: 100%;

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { CatalogPanel } from './components/CatalogPanel'
 import { FloorPlan2D } from './components/FloorPlan2D'
+import { GLBoundary } from './components/GLBoundary'
 import { Header } from './components/Header'
 import { InspectorPanel } from './components/InspectorPanel'
 import { Toolbar } from './components/Toolbar'
@@ -20,8 +21,14 @@ export default function App() {
   const [allow3d, setAllow3d] = useState(false)
 
   useEffect(() => {
-    const id = window.setTimeout(() => setAllow3d(true), 50)
-    return () => window.clearTimeout(id)
+    let inner = 0
+    const outer = window.requestAnimationFrame(() => {
+      inner = window.requestAnimationFrame(() => setAllow3d(true))
+    })
+    return () => {
+      window.cancelAnimationFrame(outer)
+      window.cancelAnimationFrame(inner)
+    }
   }, [])
 
   useEffect(() => {
@@ -61,7 +68,8 @@ export default function App() {
   }, [])
 
   const showPlan = !mobile || tab === 'plan'
-  const show3d = allow3d && (!mobile || tab === 'view3d')
+  const want3d = !mobile || tab === 'view3d'
+  const show3d = allow3d && want3d
 
   return (
     <div className={`app ${mobile ? 'mobile' : ''}`}>
@@ -87,14 +95,16 @@ export default function App() {
         {(!mobile || tab === 'plan' || tab === 'view3d') && (
           <div className="views">
             {showPlan && <FloorPlan2D />}
-            {show3d && (
-              <Suspense fallback={<div className="viewport3d boot-3d">Loading 3D…</div>}>
-                <Viewport3D />
-              </Suspense>
-            )}
-            {!show3d && (!mobile || tab === 'view3d') && (
-              <div className="viewport3d boot-3d">Loading 3D…</div>
-            )}
+            {want3d &&
+              (show3d ? (
+                <GLBoundary>
+                  <Suspense fallback={<div className="viewport3d boot-3d">Loading 3D…</div>}>
+                    <Viewport3D />
+                  </Suspense>
+                </GLBoundary>
+              ) : (
+                <div className="viewport3d boot-3d">Loading 3D…</div>
+              ))}
           </div>
         )}
         {(!mobile || tab === 'inspect') && <InspectorPanel />}

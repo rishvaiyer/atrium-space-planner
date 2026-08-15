@@ -102,6 +102,7 @@ function astar(
   const open: { c: number; r: number; f: number }[] = [{ ...start, f: 0 }]
   const came = new Map<number, number>()
   const gScore = new Map<number, number>([[key(start.c, start.r), 0]])
+  let steps = 0
 
   const heuristic = (c: number, r: number) => {
     let best = Infinity
@@ -125,7 +126,8 @@ function astar(
     [-1, -1, 1.414],
   ]
 
-  while (open.length) {
+  while (open.length && steps < grid.cols * grid.rows * 2) {
+    steps += 1
     let bestI = 0
     for (let i = 1; i < open.length; i++) if (open[i].f < open[bestI].f) bestI = i
     const current = open.splice(bestI, 1)[0]

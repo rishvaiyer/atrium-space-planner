@@ -1,9 +1,8 @@
 import { useMemo } from 'react'
 import { catalogItem } from '../catalog'
 import { useLowPower } from '../lowPower'
-import { usePlanner } from '../store'
 import { floorTexture, marbleTexture, plasterTexture, woodTexture } from '../textures'
-import type { PlacedItem } from '../types'
+import type { FloorFinish, PlacedItem, Room } from '../types'
 
 const LEGS: [number, number][] = [
   [-1, -1],
@@ -16,8 +15,7 @@ function woodMat(color = '#8a5a32') {
   return { map: woodTexture(color), roughness: 0.55, metalness: 0.02 }
 }
 
-export function FurnitureMesh({ item }: { item: PlacedItem }) {
-  const brand = usePlanner((s) => s.brandColor)
+export function FurnitureMesh({ item, brand }: { item: PlacedItem; brand: string }) {
   const accent = item.finish ?? brand
   const def = catalogItem(item.catalogId)
 
@@ -349,10 +347,15 @@ function Gondola() {
   )
 }
 
-export function RoomMesh() {
-  const room = usePlanner((s) => s.room)
-  const floor = usePlanner((s) => s.floorFinish)
-  const showWalls = usePlanner((s) => s.showWalls)
+export function RoomMesh({
+  room,
+  floor,
+  showWalls,
+}: {
+  room: Room
+  floor: FloorFinish
+  showWalls: boolean
+}) {
   const plaster = useMemo(() => plasterTexture(), [])
   const { width: w, depth: d, wallHeight: h, wallThickness: t } = room
 

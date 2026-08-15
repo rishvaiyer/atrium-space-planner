@@ -1,48 +1,60 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Canvas, useThree } from '@react-three/fiber'
-import { ContactShadows, OrbitControls, TransformControls } from '@react-three/drei'
-import type { Group } from 'three'
+import { useMemo, type CSSProperties } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { OrbitControls } from '@react-three/drei'
 import { catalogItem } from '../catalog'
 import { FurnitureMesh, RoomMesh } from '../scene/Furniture'
 import { LowPower } from '../lowPower'
 import { useIsMobile } from '../media'
 import { usePlanner } from '../store'
-import type { PlacedItem } from '../types'
+import type { FloorFinish, PlacedItem, Room } from '../types'
 import { GLBoundary } from './GLBoundary'
+
+const CAMERA = { position: [12.5, 7.4, 12] as [number, number, number], fov: 38, near: 0.1, far: 80 }
+const CAMERA_MOBILE = { ...CAMERA, fov: 46 }
+const ORBIT_TARGET: [number, number, number] = [5.6, 0.4, 4.2]
+const BG = '#8aa3b0'
+const FOG_ARGS: [string, number, number] = [BG, 18, 42]
+const HEMI_SKY = '#f2f0ea'
+const HEMI_GROUND = '#6b5c4c'
+const WRAP: CSSProperties = { width: '100%', height: '100%' }
 
 export function Viewport3D() {
   const time = usePlanner((s) => s.timeOfDay)
+  const items = usePlanner((s) => s.items)
+  const showFurniture = usePlanner((s) => s.showFurniture)
+  const showElectrical = usePlanner((s) => s.showElectrical)
+  const room = usePlanner((s) => s.room)
+  const floor = usePlanner((s) => s.floorFinish)
+  const showWalls = usePlanner((s) => s.showWalls)
+  const brand = usePlanner((s) => s.brandColor)
+  const selectedIds = usePlanner((s) => s.selectedIds)
   const sun = useMemo(() => sunFromTime(time), [time])
   const mobile = useIsMobile()
+  const hemiArgs = useMemo(() => [HEMI_SKY, HEMI_GROUND, sun.hemi] as [string, string, number], [sun.hemi])
 
   return (
     <div className="viewport3d">
-      <div className="view-label">3D · perspective</div>
+      <div className="view-label">3D · orbit</div>
       <GLBoundary>
         <Canvas
+          style={WRAP}
           shadows={!mobile}
-          dpr={mobile ? [1, 1.25] : [1, 1.75]}
-          camera={{ position: [12.5, 7.4, 12], fov: mobile ? 46 : 38, near: 0.1, far: 80 }}
-          gl={{
-            antialias: !mobile,
-            alpha: false,
-            powerPreference: mobile ? 'low-power' : 'high-performance',
-            failIfMajorPerformanceCaveat: false,
-          }}
+          dpr={1}
+          camera={mobile ? CAMERA_MOBILE : CAMERA}
           onPointerMissed={() => usePlanner.getState().select(null)}
         >
           <LowPower.Provider value={mobile}>
-            <color attach="background" args={['#8aa3b0']} />
-            <fog attach="fog" args={['#8aa3b0', 18, 42]} />
-            <hemisphereLight args={['#f2f0ea', '#6b5c4c', sun.hemi]} />
+            <color attach="background" args={[BG]} />
+            <fog attach="fog" args={FOG_ARGS} />
+            <hemisphereLight args={hemiArgs} />
             <ambientLight intensity={mobile ? sun.ambient + 0.22 : sun.ambient} />
             <directionalLight
               position={sun.position}
               intensity={mobile ? sun.intensity * 0.7 : sun.intensity}
               color={sun.color}
               castShadow={!mobile}
-              shadow-mapSize-width={mobile ? 512 : 1024}
-              shadow-mapSize-height={mobile ? 512 : 1024}
+              shadow-mapSize-width={512}
+              shadow-mapSize-height={512}
               shadow-camera-near={1}
               shadow-camera-far={40}
               shadow-camera-left={-12}
@@ -50,11 +62,24 @@ export function Viewport3D() {
               shadow-camera-top={12}
               shadow-camera-bottom={-12}
             />
-            <Scene />
-            {!mobile && (
-              <ContactShadows position={[5.6, 0.01, 4.2]} opacity={0.35} scale={22} blur={2.2} far={8} />
-            )}
-            <Controls mobile={mobile} />
+            <Scene
+              items={items}
+              showFurniture={showFurniture}
+              showElectrical={showElectrical}
+              room={room}
+              floor={floor}
+              showWalls={showWalls}
+              brand={brand}
+              selectedIds={selectedIds}
+            />
+            <OrbitControls
+              makeDefault
+              enableDamping={false}
+              maxPolarAngle={Math.PI / 2 - 0.06}
+              minDistance={3}
+              maxDistance={28}
+              target={ORBIT_TARGET}
+            />
           </LowPower.Provider>
         </Canvas>
       </GLBoundary>
@@ -62,15 +87,28 @@ export function Viewport3D() {
   )
 }
 
-function Scene() {
-  const items = usePlanner((s) => s.items)
-  const showFurniture = usePlanner((s) => s.showFurniture)
-  const showElectrical = usePlanner((s) => s.showElectrical)
-  const room = usePlanner((s) => s.room)
-
+function Scene({
+  items,
+  showFurniture,
+  showElectrical,
+  room,
+  floor,
+  showWalls,
+  brand,
+  selectedIds,
+}: {
+  items: PlacedItem[]
+  showFurniture: boolean
+  showElectrical: boolean
+  room: Room
+  floor: FloorFinish
+  showWalls: boolean
+  brand: string
+  selectedIds: string[]
+}) {
   return (
     <group>
-      <RoomMesh />
+      <RoomMesh room={room} floor={floor} showWalls={showWalls} />
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[room.width / 2, 0.01, room.depth / 2]}
@@ -91,27 +129,30 @@ function Scene() {
         const def = catalogItem(item.catalogId)
         if (!showElectrical && def.costGroup === 'lighting') return null
         if (!showFurniture && def.costGroup !== 'lighting') return null
-        return <PlacedMesh key={item.id} item={item} />
+        return (
+          <PlacedMesh
+            key={item.id}
+            item={item}
+            brand={brand}
+            selected={selectedIds.includes(item.id)}
+          />
+        )
       })}
     </group>
   )
 }
 
-function PlacedMesh({ item }: { item: PlacedItem }) {
-  const ref = useRef<Group>(null)
-  const selected = usePlanner((s) => s.selectedIds.includes(item.id))
-  const dragging = usePlanner((s) => s.isDragging3d)
-
-  useEffect(() => {
-    if (!ref.current) return
-    if (dragging && selected) return
-    ref.current.position.set(item.x, 0, item.z)
-    ref.current.rotation.set(0, item.rotation, 0)
-  }, [item.x, item.z, item.rotation, dragging, selected])
-
+function PlacedMesh({
+  item,
+  brand,
+  selected,
+}: {
+  item: PlacedItem
+  brand: string
+  selected: boolean
+}) {
   return (
     <group
-      ref={ref}
       name={`item-${item.id}`}
       position={[item.x, 0, item.z]}
       rotation={[0, item.rotation, 0]}
@@ -125,7 +166,7 @@ function PlacedMesh({ item }: { item: PlacedItem }) {
         state.select(item.id, e.shiftKey)
       }}
     >
-      <FurnitureMesh item={item} />
+      <FurnitureMesh item={item} brand={brand} />
       {selected && (
         <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.28, 0.34, 32]} />
@@ -133,64 +174,6 @@ function PlacedMesh({ item }: { item: PlacedItem }) {
         </mesh>
       )}
     </group>
-  )
-}
-
-function Controls({ mobile }: { mobile: boolean }) {
-  const selectedIds = usePlanner((s) => s.selectedIds)
-  const { scene } = useThree()
-  const [object, setObject] = useState<Group | null>(null)
-  const [orbitOn, setOrbitOn] = useState(true)
-
-  useEffect(() => {
-    if (mobile || selectedIds.length !== 1) {
-      setObject(null)
-      return
-    }
-    const found = scene.getObjectByName(`item-${selectedIds[0]}`) as Group | undefined
-    setObject(found ?? null)
-  }, [selectedIds, scene, mobile])
-
-  return (
-    <>
-      <OrbitControls
-        makeDefault
-        enabled={orbitOn}
-        enableDamping={!mobile}
-        dampingFactor={0.08}
-        maxPolarAngle={Math.PI / 2 - 0.06}
-        minDistance={3}
-        maxDistance={28}
-        target={[5.6, 0.4, 4.2]}
-      />
-      {object && !mobile && (
-        <TransformControls
-          object={object}
-          mode="translate"
-          showY={false}
-          size={0.85}
-          space="world"
-          onMouseDown={() => {
-            usePlanner.getState().setFlag('isDragging3d', true)
-            setOrbitOn(false)
-          }}
-          onMouseUp={() => {
-            const state = usePlanner.getState()
-            state.setFlag('isDragging3d', false)
-            setOrbitOn(true)
-            if (selectedIds.length !== 1) return
-            const snap = state.snapOn ? state.snap : 0
-            const x = snap ? Math.round(object.position.x / snap) * snap : object.position.x
-            const z = snap ? Math.round(object.position.z / snap) * snap : object.position.z
-            state.commitHistory()
-            state.updateItem(selectedIds[0], { x, z })
-            object.position.x = x
-            object.position.z = z
-            object.position.y = 0
-          }}
-        />
-      )}
-    </>
   )
 }
 
