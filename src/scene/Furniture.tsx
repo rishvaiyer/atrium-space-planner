@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { catalogItem } from '../catalog'
+import { itemDims } from '../geometry'
 import { useLowPower } from '../lowPower'
-import { floorTexture, marbleTexture, wallTexture, woodTexture } from '../textures'
+import { floorTexture, marbleTexture, surfaceMap, wallTexture, woodTexture } from '../textures'
 import type { FloorFinish, PlacedItem, Room, WallFinish } from '../types'
 import { doorHinge, pointOnWall, wallDir, wallPieces } from '../walls'
 
@@ -19,98 +20,118 @@ function woodMat(color = '#8a5a32') {
 export function FurnitureMesh({ item, brand }: { item: PlacedItem; brand: string }) {
   const accent = item.finish ?? brand
   const def = catalogItem(item.catalogId)
+  const { w, d, h } = itemDims(item)
+  const sx = w / def.w
+  const sy = h / def.h
+  const sz = d / def.d
+  const map = item.texture ? surfaceMap(item.texture) : null
 
-  switch (item.catalogId) {
-    case 'cafe-chair':
-      return <Chair accent={accent} />
-    case 'task-chair':
-      return <TaskChair accent={accent} />
-    case 'stool':
-      return <Stool accent={accent} />
-    case 'table-4':
-      return <Table top={0.9} square />
-    case 'table-2':
-      return <Table top={0.7} square={false} />
-    case 'display-table':
-      return <Table top={1.15} square depth={0.8} />
-    case 'banquette':
-      return <Banquette w={def.w} d={def.d} accent={accent} />
-    case 'lounge':
-    case 'sofa':
-    case 'clinic-sofa':
-    case 'booth':
-    case 'bench':
-    case 'fitting-bench':
-      return <Banquette w={def.w} d={def.d} accent={accent} />
-    case 'armchair':
-    case 'guest-chair':
-    case 'dining-chair':
-    case 'student-chair':
-      return <Chair accent={accent} />
-    case 'conference-table':
-    case 'dining-table':
-      return <Table top={def.w} square depth={def.d} />
-    case 'high-top':
-      return <Table top={def.w} square={false} />
-    case 'kitchen-island':
-    case 'prep-table':
-      return <Bar w={def.w} d={def.d} h={def.h} />
-    case 'phone-booth':
-      return <HabMod accent={accent} />
-    case 'bed':
-      return <Banquette w={def.w} d={Math.min(def.d, 1.1)} accent={accent} />
-    case 'exam-table':
-      return <Table top={def.w} square depth={def.d} />
-    case 'coffee-table':
-      return <Table top={def.w} square depth={def.d} />
-    case 'reception':
-    case 'whiteboard':
-      return <Bar w={def.w} d={Math.max(def.d, 0.12)} h={def.h} />
-    case 'waiting-chair':
-      return <Chair accent={accent} />
-    case 'espresso-bar':
-      return <Bar w={def.w} d={def.d} h={def.h} machine />
-    case 'service-counter':
-    case 'checkout':
-      return <Bar w={def.w} d={def.d} h={def.h} />
-    case 'pendant':
-      return <Pendant />
-    case 'fridge':
-      return <Fridge w={def.w} d={def.d} h={def.h} />
-    case 'host-stand':
-      return <HostStand />
-    case 'planter':
-      return <Planter />
-    case 'desk':
-      return <Desk />
-    case 'credenza':
-      return <Credenza />
-    case 'gondola':
-      return <Gondola />
-    case 'hab-mod':
-      return <HabMod accent={accent} />
-    case 'airlock':
-      return <Airlock />
-    case 'greenhouse':
-      return <Greenhouse />
-    case 'eclss':
-      return <Eclss />
-    case 'solar-array':
-      return <Solar />
-    case 'rtg':
-      return <Rtg />
-    case 'rad-shelter':
-      return <Shelter accent={accent} />
-    case 'isru':
-      return <Isru />
-    default:
-      return (
+  const body = (() => {
+    switch (item.catalogId) {
+      case 'cafe-chair':
+        return <Chair accent={accent} />
+      case 'task-chair':
+        return <TaskChair accent={accent} />
+      case 'stool':
+        return <Stool accent={accent} />
+      case 'table-4':
+        return <Table top={0.9} square />
+      case 'table-2':
+        return <Table top={0.7} square={false} />
+      case 'display-table':
+        return <Table top={1.15} square depth={0.8} />
+      case 'banquette':
+        return <Banquette w={def.w} d={def.d} accent={accent} />
+      case 'lounge':
+      case 'sofa':
+      case 'clinic-sofa':
+      case 'booth':
+      case 'bench':
+      case 'fitting-bench':
+        return <Banquette w={def.w} d={def.d} accent={accent} />
+      case 'armchair':
+      case 'guest-chair':
+      case 'dining-chair':
+      case 'student-chair':
+        return <Chair accent={accent} />
+      case 'conference-table':
+      case 'dining-table':
+        return <Table top={def.w} square depth={def.d} />
+      case 'high-top':
+        return <Table top={def.w} square={false} />
+      case 'kitchen-island':
+      case 'prep-table':
+        return <Bar w={def.w} d={def.d} h={def.h} />
+      case 'phone-booth':
+        return <HabMod accent={accent} />
+      case 'bed':
+        return <Banquette w={def.w} d={Math.min(def.d, 1.1)} accent={accent} />
+      case 'exam-table':
+        return <Table top={def.w} square depth={def.d} />
+      case 'coffee-table':
+        return <Table top={def.w} square depth={def.d} />
+      case 'reception':
+      case 'whiteboard':
+        return <Bar w={def.w} d={Math.max(def.d, 0.12)} h={def.h} />
+      case 'waiting-chair':
+        return <Chair accent={accent} />
+      case 'espresso-bar':
+        return <Bar w={def.w} d={def.d} h={def.h} machine />
+      case 'service-counter':
+      case 'checkout':
+        return <Bar w={def.w} d={def.d} h={def.h} />
+      case 'pendant':
+        return <Pendant />
+      case 'fridge':
+        return <Fridge w={def.w} d={def.d} h={def.h} />
+      case 'host-stand':
+        return <HostStand />
+      case 'planter':
+        return <Planter />
+      case 'desk':
+        return <Desk />
+      case 'credenza':
+        return <Credenza />
+      case 'gondola':
+        return <Gondola />
+      case 'hab-mod':
+        return <HabMod accent={accent} />
+      case 'airlock':
+        return <Airlock />
+      case 'greenhouse':
+        return <Greenhouse />
+      case 'eclss':
+        return <Eclss />
+      case 'solar-array':
+        return <Solar />
+      case 'rtg':
+        return <Rtg />
+      case 'rad-shelter':
+        return <Shelter accent={accent} />
+      case 'isru':
+        return <Isru />
+      default:
+        return (
+          <mesh position={[0, def.h / 2, 0]} castShadow receiveShadow>
+            <boxGeometry args={[def.w, def.h, def.d]} />
+            <meshStandardMaterial color={accent} roughness={0.6} />
+          </mesh>
+        )
+    }
+  })()
+
+  return (
+    <group scale={[sx, sy, sz]}>
+      {map ? (
         <mesh position={[0, def.h / 2, 0]} castShadow receiveShadow>
           <boxGeometry args={[def.w, def.h, def.d]} />
-          <meshStandardMaterial color={accent} roughness={0.6} />
+          <meshStandardMaterial map={map} color={accent} roughness={0.65} />
         </mesh>
-      )
-  }
+      ) : (
+        body
+      )}
+    </group>
+  )
 }
 
 function Chair({ accent }: { accent: string }) {

@@ -47,6 +47,11 @@ export interface PlacedItem {
   z: number
   rotation: number
   finish?: string
+  w?: number
+  d?: number
+  h?: number
+  texture?: string
+  extra?: string
 }
 
 export interface WallSeg {

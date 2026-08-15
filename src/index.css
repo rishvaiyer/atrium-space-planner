@@ -477,12 +477,17 @@ html[data-theme='dark'] .viewport2d { background: #141416; }
 .kv b { font-weight: 550; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; }
 
 .field { display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--muted); margin-top: 12px; }
-.field input {
+.field textarea.object-code {
   width: 100%;
+  min-height: 180px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 7px 8px;
+  padding: 8px;
   background: var(--panel-2);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  resize: vertical;
 }
 
 .dims { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }

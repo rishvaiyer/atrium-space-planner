@@ -1,4 +1,5 @@
 import { catalogItem, sitHeightOf, worldUse } from './catalog'
+import { itemDims } from './geometry'
 import { polygonArea } from './spaces'
 import type { PlacedItem, Room } from './types'
 import { pointOnWall, wallById } from './walls'
@@ -29,6 +30,7 @@ export function toPlaceExport(options: {
     }),
     props: items.map((it) => {
       const def = catalogItem(it.catalogId)
+      const { w, d, h } = itemDims(it)
       const use = worldUse(def)
       const slots = use === 'sit' || use === 'sleep' ? Math.max(1, def.seats || 1) : 0
       return {
@@ -39,9 +41,12 @@ export function toPlaceExport(options: {
         y: 0,
         z: it.z,
         yaw: it.rotation,
-        w: def.w,
-        d: def.d,
-        h: def.h,
+        w,
+        d,
+        h,
+        color: it.finish ?? null,
+        texture: it.texture ?? null,
+        extra: it.extra ?? null,
         use,
         sittable: use === 'sit',
         sleepable: use === 'sleep',

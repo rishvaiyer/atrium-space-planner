@@ -1,5 +1,4 @@
-import { catalogItem } from './catalog'
-import { formatMm, formatMoney } from './geometry'
+import { formatMm, formatMoney, itemDims } from './geometry'
 import type { Analysis } from './compliance'
 import type { PlacedItem, Room } from './types'
 import { pointOnWall, wallById } from './walls'
@@ -38,8 +37,8 @@ export function openBoard(options: {
   const itemSvg = items
     .map((it) => {
       try {
-        const def = catalogItem(it.catalogId)
-        return `<rect x="${it.x - def.w / 2}" y="${it.z - def.d / 2}" width="${def.w}" height="${def.d}" fill="#64748b" opacity="0.45" transform="rotate(${(it.rotation * 180) / Math.PI} ${it.x} ${it.z})" />`
+        const { w, d } = itemDims(it)
+        return `<rect x="${it.x - w / 2}" y="${it.z - d / 2}" width="${w}" height="${d}" fill="${it.finish ?? '#64748b'}" opacity="0.45" transform="rotate(${(it.rotation * 180) / Math.PI} ${it.x} ${it.z})" />`
       } catch {
         return ''
       }

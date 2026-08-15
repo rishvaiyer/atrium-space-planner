@@ -12,6 +12,12 @@ export interface DesignItem {
   /** Radians. Prefer rotationDeg. */
   rotation?: number
   rotationDeg?: number
+  w?: number
+  d?: number
+  h?: number
+  color?: string
+  texture?: string
+  extra?: string
 }
 
 export interface DesignSpec {
@@ -88,7 +94,7 @@ export const DESIGN_EXAMPLE: DesignSpec = {
     { name: 'Bar', x: 6, z: 3 },
   ],
   items: [
-    { item: 'sofa', x: 1.6, z: 2.2, rotation: 0 },
+    { item: 'sofa', x: 1.6, z: 2.2, w: 2.6, color: '#c2410c', texture: 'walnut' },
     { item: 'armchair', x: 2.8, z: 3.4, rotationDeg: 90 },
     { item: 'coffee-table', x: 1.8, z: 3.2 },
     { item: 'bar', x: 6.6, z: 3 },
@@ -146,6 +152,12 @@ export function compileDesign(spec: DesignSpec): ProjectFile {
       x: it.x,
       z: it.z,
       rotation: it.rotationDeg != null ? (it.rotationDeg * Math.PI) / 180 : (it.rotation ?? 0),
+      w: it.w,
+      d: it.d,
+      h: it.h,
+      finish: it.color,
+      texture: it.texture,
+      extra: it.extra,
     })
   }
   const notes: Note[] = (spec.notes ?? []).map((n) => ({ id: uid(), x: n.x, z: n.z, text: n.text }))

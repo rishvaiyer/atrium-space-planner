@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent } from 'react'
 import { catalogItem } from '../catalog'
 import { analyzeLayout } from '../compliance'
-import { formatMm, itemAabb } from '../geometry'
+import { formatMm, itemAabb, itemDims } from '../geometry'
 import { isCoarsePointer } from '../media'
 import { pointInPoly, polygonArea, polygonCentroid } from '../spaces'
 import { usePlanner } from '../store'
@@ -544,6 +544,7 @@ function PlanItem({
   showOccupancy: boolean
 }) {
   const def = catalogItem(item.catalogId)
+  const { w, d } = itemDims(item)
   const fill =
     item.finish ??
     (def.plan === 'bar'
@@ -558,38 +559,38 @@ function PlanItem({
     >
       {def.plan === 'chair' && (
         <>
-          <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} rx={0.04} fill={fill} />
-          <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={0.05} fill="#111318" />
+          <rect x={-w / 2} y={-d / 2} width={w} height={d} rx={0.04} fill={fill} />
+          <rect x={-w / 2} y={-d / 2} width={w} height={0.05} fill="#111318" />
         </>
       )}
-      {def.plan === 'stool' && <circle r={def.w / 2} fill={fill} />}
-      {def.plan === 'round' && <circle r={def.w / 2} fill={fill} />}
+      {def.plan === 'stool' && <circle r={w / 2} fill={fill} />}
+      {def.plan === 'round' && <circle r={w / 2} fill={fill} />}
       {def.plan === 'rect' && (
-        <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} rx={0.02} fill={fill} />
+        <rect x={-w / 2} y={-d / 2} width={w} height={d} rx={0.02} fill={fill} />
       )}
       {def.plan === 'desk' && (
-        <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} rx={0.02} fill="#6b7380" />
+        <rect x={-w / 2} y={-d / 2} width={w} height={d} rx={0.02} fill="#6b7380" />
       )}
       {def.plan === 'bar' && (
         <>
-          <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} fill={fill} />
-          <rect x={-def.w / 2} y={def.d / 2 - 0.08} width={def.w} height={0.08} fill="#111318" />
+          <rect x={-w / 2} y={-d / 2} width={w} height={d} fill={fill} />
+          <rect x={-w / 2} y={d / 2 - 0.08} width={w} height={0.08} fill="#111318" />
         </>
       )}
       {def.plan === 'banquette' && (
         <>
-          <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} fill={fill} />
-          <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={0.08} fill="#111318" />
+          <rect x={-w / 2} y={-d / 2} width={w} height={d} fill={fill} />
+          <rect x={-w / 2} y={-d / 2} width={w} height={0.08} fill="#111318" />
         </>
       )}
       {def.plan === 'module' && (
         <>
-          <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} rx={0.12} fill={fill} />
+          <rect x={-w / 2} y={-d / 2} width={w} height={d} rx={0.12} fill={fill} />
           <rect
-            x={-def.w / 2 + 0.12}
-            y={-def.d / 2 + 0.12}
-            width={def.w - 0.24}
-            height={def.d - 0.24}
+            x={-w / 2 + 0.12}
+            y={-d / 2 + 0.12}
+            width={w - 0.24}
+            height={d - 0.24}
             rx={0.08}
             fill="none"
             stroke="#111318"
@@ -606,25 +607,25 @@ function PlanItem({
       )}
       {def.plan === 'fridge' && (
         <>
-          <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} fill="#cfd5d8" />
-          <rect x={-def.w / 2 + 0.06} y={-def.d / 2 + 0.06} width={def.w - 0.12} height={def.d - 0.12} fill="none" stroke="#5a656c" strokeWidth={0.03} />
+          <rect x={-w / 2} y={-d / 2} width={w} height={d} fill="#cfd5d8" />
+          <rect x={-w / 2 + 0.06} y={-d / 2 + 0.06} width={w - 0.12} height={d - 0.12} fill="none" stroke="#5a656c" strokeWidth={0.03} />
         </>
       )}
       {showOccupancy && def.isSeat && (
         <circle r={0.08} className="occ" cy={0} />
       )}
       {showLabel && (
-        <text className="item-label" y={def.d / 2 + 0.18} textAnchor="middle">
+        <text className="item-label" y={d / 2 + 0.18} textAnchor="middle">
           {def.name}
         </text>
       )}
       {selected && (
         <rect
           className="sel"
-          x={-def.w / 2 - 0.04}
-          y={-def.d / 2 - 0.04}
-          width={def.w + 0.08}
-          height={def.d + 0.08}
+          x={-w / 2 - 0.04}
+          y={-d / 2 - 0.04}
+          width={w + 0.08}
+          height={d + 0.08}
         />
       )}
     </g>

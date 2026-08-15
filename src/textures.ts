@@ -372,3 +372,11 @@ export function wallTexture(kind: 'plaster' | 'paint' | 'brick' | 'wood' | 'conc
       return tileTexture()
   }
 }
+
+export function surfaceMap(kind: string): CanvasTexture | null {
+  const floors = ['oak', 'walnut', 'herringbone', 'terrazzo', 'marble', 'concrete', 'tile', 'slate', 'carpet', 'checker'] as const
+  const walls = ['plaster', 'paint', 'brick', 'wood'] as const
+  if ((floors as readonly string[]).includes(kind)) return floorTexture(kind as (typeof floors)[number])
+  if ((walls as readonly string[]).includes(kind)) return wallTexture(kind as 'plaster' | 'paint' | 'brick' | 'wood' | 'concrete' | 'tile')
+  return null
+}

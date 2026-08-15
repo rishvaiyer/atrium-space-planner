@@ -1,9 +1,11 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { catalogItem, sitHeightOf, worldUse } from '../catalog'
 import { analyzeLayout } from '../compliance'
-import { formatMm, formatMoney } from '../geometry'
+import { formatMm, formatMoney, itemDims } from '../geometry'
+import { applyObjectCode, objectCode, OBJECT_TEXTURES } from '../objectCode'
+import { downloadJson } from '../project'
 import { usePlanner } from '../store'
-import type { BudgetTier, FloorFinish, Jurisdiction, WallFinish } from '../types'
+import type { BudgetTier, FloorFinish, Jurisdiction, PlacedItem, WallFinish } from '../types'
 import { wallById, wallLen } from '../walls'
 
 const BRANDS = ['#3b82f6', '#111111', '#efeae2', '#c2410c', '#6b5344', '#0f766e']
@@ -40,7 +42,6 @@ export function InspectorPanel() {
   const selectedArch = usePlanner((s) => s.selectedArch)
 
   const selected = selectedIds.length === 1 ? items.find((i) => i.id === selectedIds[0]) : undefined
-  const def = selected ? catalogItem(selected.catalogId) : undefined
 
   const analysis = useMemo(() => {
     try {
@@ -219,49 +220,8 @@ export function InspectorPanel() {
 
       <section>
         <div className="panel-kicker">Selection</div>
-        {selected && def ? (
-          <>
-            <h3>{def.name}</h3>
-            <div className="kv">
-              <span>SKU</span>
-              <b>{def.sku}</b>
-              <span>Position</span>
-              <b>
-                {selected.x.toFixed(2)} · {selected.z.toFixed(2)} m
-              </b>
-              <span>Rotation</span>
-              <b>{Math.round((selected.rotation * 180) / Math.PI) % 360}°</b>
-              <span>Size</span>
-              <b>
-                {formatMm(def.w)} × {formatMm(def.d)}
-              </b>
-              <span>World</span>
-              <b>
-                {worldUse(def) === 'sit'
-                  ? `Sit × ${def.seats} · ${sitHeightOf(def).toFixed(2)} m`
-                  : worldUse(def) === 'sleep'
-                    ? `Sleep · ${sitHeightOf(def).toFixed(2)} m`
-                    : worldUse(def) === 'work'
-                      ? 'Work surface'
-                      : 'Prop'}
-              </b>
-            </div>
-            <label className="field">
-              Finish
-              <div className="swatches">
-                {BRANDS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    className={selected.finish === c || (!selected.finish && c === brand) ? 'on' : ''}
-                    style={{ background: c }}
-                    onClick={() => usePlanner.getState().setFinish(selected.id, c)}
-                    aria-label={c}
-                  />
-                ))}
-              </div>
-            </label>
-          </>
+        {selected ? (
+          <ObjectEditor item={selected} brand={brand} />
         ) : (
           <p className="empty">Click a fixture on the plan or in 3D.</p>
         )}
@@ -377,5 +337,137 @@ export function InspectorPanel() {
         )}
       </section>
     </aside>
+  )
+}
+
+function ObjectEditor({ item, brand }: { item: PlacedItem; brand: string }) {
+  const def = catalogItem(item.catalogId)
+  const { w, d, h } = itemDims(item)
+  const [raw, setRaw] = useState(() => JSON.stringify(objectCode(item), null, 2))
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    const live = usePlanner.getState().items.find((it) => it.id === item.id)
+    if (live) setRaw(JSON.stringify(objectCode(live), null, 2))
+    setErr('')
+  }, [item.id])
+
+  const patch = (next: Partial<PlacedItem>) => {
+    const s = usePlanner.getState()
+    s.commitHistory()
+    s.updateItem(item.id, next)
+  }
+
+  const applyCode = () => {
+    const result = applyObjectCode(item, raw)
+    if ('error' in result) {
+      setErr(result.error)
+      return
+    }
+    setErr('')
+    const s = usePlanner.getState()
+    s.commitHistory()
+    s.updateItem(item.id, result.item)
+  }
+
+  return (
+    <>
+      <h3>{def.name}</h3>
+      <div className="kv">
+        <span>SKU</span>
+        <b>{def.sku}</b>
+        <span>Position</span>
+        <b>
+          {item.x.toFixed(2)} · {item.z.toFixed(2)} m
+        </b>
+        <span>Rotation</span>
+        <b>{Math.round((item.rotation * 180) / Math.PI) % 360}°</b>
+        <span>World</span>
+        <b>
+          {worldUse(def) === 'sit'
+            ? `Sit × ${def.seats} · ${sitHeightOf(def).toFixed(2)} m`
+            : worldUse(def) === 'sleep'
+              ? `Sleep · ${sitHeightOf(def).toFixed(2)} m`
+              : worldUse(def) === 'work'
+                ? 'Work surface'
+                : 'Prop'}
+        </b>
+      </div>
+      <label className="field">
+        Size w · d · h (m)
+        <div className="dims">
+          <input type="number" min={0.05} max={8} step={0.05} value={Number(w.toFixed(2))} onChange={(e) => patch({ w: Number(e.target.value) })} />
+          <input type="number" min={0.05} max={8} step={0.05} value={Number(d.toFixed(2))} onChange={(e) => patch({ d: Number(e.target.value) })} />
+          <input type="number" min={0.05} max={6} step={0.05} value={Number(h.toFixed(2))} onChange={(e) => patch({ h: Number(e.target.value) })} />
+        </div>
+      </label>
+      <label className="field">
+        Color
+        <div className="swatches">
+          {BRANDS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              className={item.finish === c || (!item.finish && c === brand) ? 'on' : ''}
+              style={{ background: c }}
+              onClick={() => patch({ finish: c })}
+              aria-label={c}
+            />
+          ))}
+        </div>
+        <input
+          type="text"
+          value={item.finish ?? ''}
+          placeholder="#hex"
+          onChange={(e) => patch({ finish: e.target.value || undefined })}
+        />
+      </label>
+      <label className="field">
+        Texture
+        <div className="pills">
+          <button type="button" className={!item.texture ? 'on' : ''} onClick={() => patch({ texture: undefined })}>
+            none
+          </button>
+          {OBJECT_TEXTURES.map((t) => (
+            <button key={t} type="button" className={item.texture === t ? 'on' : ''} onClick={() => patch({ texture: t })}>
+              {t}
+            </button>
+          ))}
+        </div>
+      </label>
+      <label className="field">
+        Object code
+        <textarea
+          className="object-code"
+          rows={12}
+          spellCheck={false}
+          value={raw}
+          onChange={(e) => setRaw(e.target.value)}
+          aria-label="Raw object JSON"
+        />
+      </label>
+      {err && <p className="empty">{err}</p>}
+      <div className="pills">
+        <button type="button" onClick={applyCode}>
+          Apply code
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setRaw(JSON.stringify(objectCode(item), null, 2))
+            setErr('')
+          }}
+        >
+          Refresh
+        </button>
+        <button
+          type="button"
+          onClick={() => downloadJson(`${def.id}.object.json`, objectCode(item))}
+        >
+          Export object
+        </button>
+      </div>
+      <p className="hint">AIs can Open a design JSON, or paste object code here. Save / Place exports the whole room with these edits.</p>
+    </>
   )
 }

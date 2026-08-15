@@ -12,9 +12,19 @@ export function rotatedExtents(w: number, d: number, rotation: number): { w: num
   return { w: w * c + d * s, d: w * s + d * c }
 }
 
-export function itemAabb(item: PlacedItem) {
+export function itemDims(item: PlacedItem) {
   const def = catalogItem(item.catalogId)
-  const { w, d } = rotatedExtents(def.w, def.d, item.rotation)
+  return {
+    def,
+    w: item.w ?? def.w,
+    d: item.d ?? def.d,
+    h: item.h ?? def.h,
+  }
+}
+
+export function itemAabb(item: PlacedItem) {
+  const { w: bw, d: bd } = itemDims(item)
+  const { w, d } = rotatedExtents(bw, bd, item.rotation)
   return {
     minX: item.x - w / 2,
     maxX: item.x + w / 2,

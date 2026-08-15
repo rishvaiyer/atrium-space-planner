@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
 import { catalogItem } from '../catalog'
+import { itemDims } from '../geometry'
 import { FurnitureMesh, RoomMesh } from '../scene/Furniture'
 import { LowPower } from '../lowPower'
 import { useIsMobile } from '../media'
@@ -336,11 +337,12 @@ function IsoView({
           const def = catalogItem(item.catalogId)
           if (!showLighting && def.costGroup === 'lighting') return null
           if (!showFurniture && def.costGroup !== 'lighting') return null
-          const a = iso(item.x - def.w / 2, item.z - def.d / 2)
-          const b = iso(item.x + def.w / 2, item.z - def.d / 2)
-          const c = iso(item.x + def.w / 2, item.z + def.d / 2)
-          const d = iso(item.x - def.w / 2, item.z + def.d / 2)
-          const lift = def.h * 0.42
+          const { w, d, h } = itemDims(item)
+          const a = iso(item.x - w / 2, item.z - d / 2)
+          const b = iso(item.x + w / 2, item.z - d / 2)
+          const c = iso(item.x + w / 2, item.z + d / 2)
+          const dpt = iso(item.x - w / 2, item.z + d / 2)
+          const lift = h * 0.42
           const fill = item.finish ?? (def.costGroup === 'lighting' ? '#9ec5ff' : brand)
           const selected = selectedIds.includes(item.id)
           return (
@@ -353,7 +355,7 @@ function IsoView({
               }}
             >
               <polygon
-                points={`${a.x},${a.y - lift} ${b.x},${b.y - lift} ${c.x},${c.y - lift} ${d.x},${d.y - lift}`}
+                points={`${a.x},${a.y - lift} ${b.x},${b.y - lift} ${c.x},${c.y - lift} ${dpt.x},${dpt.y - lift}`}
                 fill={fill}
                 stroke="#0e1116"
                 strokeWidth={0.03}
