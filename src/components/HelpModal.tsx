@@ -29,6 +29,14 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
             </p>
           </section>
           <section>
+            <h3>Textures</h3>
+            <p>
+              Select any fixture, open <strong>Spec</strong>, and pick a surface: oak, marble, brass, velvet, leather, and
+              dozens more. The map wraps the real 3D mesh (and imported GLBs), not a replacement box. Pair with Color to
+              tint. Set Texture to none to restore the default finish.
+            </p>
+          </section>
+          <section>
             <h3>Draw the room</h3>
             <p>
               <strong>W</strong> wall (click two points), <strong>D</strong> door on a wall, <strong>G</strong> window.

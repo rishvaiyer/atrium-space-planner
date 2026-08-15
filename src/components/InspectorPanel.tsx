@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { catalogItem, sitHeightOf, worldUse } from '../catalog'
 import { analyzeLayout } from '../compliance'
 import { formatMm, formatMoney, itemDims } from '../geometry'
-import { applyObjectCode, objectCode, OBJECT_TEXTURES } from '../objectCode'
+import { applyObjectCode, objectCode } from '../objectCode'
+import { ITEM_TEXTURES, texturePreview, type TextureGroup } from '../textures'
 import { downloadJson } from '../project'
 import { usePlanner } from '../store'
 import type { BudgetTier, FloorFinish, Jurisdiction, PlacedItem, WallFinish } from '../types'
@@ -424,16 +425,13 @@ function ObjectEditor({ item, brand }: { item: PlacedItem; brand: string }) {
       </label>
       <label className="field">
         Texture
-        <div className="pills">
+        <span className="field-hint">Applies to this piece in 3D — woods, stone, metal, fabric, leather, and more.</span>
+        <div className="pills tight">
           <button type="button" className={!item.texture ? 'on' : ''} onClick={() => patch({ texture: undefined })}>
             none
           </button>
-          {OBJECT_TEXTURES.map((t) => (
-            <button key={t} type="button" className={item.texture === t ? 'on' : ''} onClick={() => patch({ texture: t })}>
-              {t}
-            </button>
-          ))}
         </div>
+        <TexturePicker value={item.texture} onPick={(id) => patch({ texture: id })} />
       </label>
       <label className="field">
         Object code
@@ -469,5 +467,33 @@ function ObjectEditor({ item, brand }: { item: PlacedItem; brand: string }) {
       </div>
       <p className="hint">AIs can Open a design JSON, or paste object code here. Save / Place exports the whole room with these edits.</p>
     </>
+  )
+}
+
+const TEX_GROUPS: TextureGroup[] = ['wood', 'stone', 'tile', 'metal', 'fabric', 'leather', 'other']
+
+function TexturePicker({ value, onPick }: { value?: string; onPick: (id: string) => void }) {
+  return (
+    <div className="tex-picker">
+      {TEX_GROUPS.map((group) => (
+        <div key={group}>
+          <div className="tex-group">{group}</div>
+          <div className="tex-grid">
+            {ITEM_TEXTURES.filter((t) => t.group === group).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={`tex-swatch ${value === t.id ? 'on' : ''}`}
+                title={t.name}
+                onClick={() => onPick(t.id)}
+              >
+                <span className="tex-thumb" style={{ backgroundImage: `url(${texturePreview(t.id)})` }} />
+                <em>{t.name}</em>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }

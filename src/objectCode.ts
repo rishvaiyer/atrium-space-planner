@@ -1,23 +1,9 @@
 import { catalogItem } from './catalog'
 import { itemDims } from './geometry'
 import type { PlacedItem } from './types'
+import { ITEM_TEXTURES } from './textures'
 
-export const OBJECT_TEXTURES = [
-  'oak',
-  'walnut',
-  'herringbone',
-  'terrazzo',
-  'marble',
-  'concrete',
-  'tile',
-  'slate',
-  'carpet',
-  'checker',
-  'plaster',
-  'paint',
-  'brick',
-  'wood',
-] as const
+export const OBJECT_TEXTURES = ITEM_TEXTURES.map((t) => t.id)
 
 export function objectCode(item: PlacedItem) {
   const { def, w, d, h } = itemDims(item)

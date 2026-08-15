@@ -479,6 +479,7 @@ html[data-theme='dark'] .viewport2d { background: #141416; }
 .kv b { font-weight: 550; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; }
 
 .field { display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--muted); margin-top: 12px; }
+.field-hint { font-size: 11px; line-height: 1.4; }
 .field textarea.object-code {
   width: 100%;
   min-height: 180px;
@@ -510,6 +511,33 @@ html[data-theme='dark'] .viewport2d { background: #141416; }
 .pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
 .pills button { text-transform: capitalize; font-size: 11px; padding: 5px 8px; border-radius: 999px; }
 .pills.tight button { padding: 4px 6px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; }
+
+.tex-picker { display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow: auto; }
+.tex-group { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.tex-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.tex-swatch {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  text-align: left;
+}
+.tex-swatch.on { outline: 2px solid var(--text); outline-offset: 1px; }
+.tex-thumb {
+  display: block;
+  height: 36px;
+  border-radius: 6px;
+  background-size: cover;
+  background-position: center;
+  border: 1px solid var(--line);
+}
+.tex-swatch em {
+  font-style: normal;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--text);
+}
 
 .slider-row { display: grid; grid-template-columns: 1fr 52px; gap: 8px; align-items: center; }
 .slider-row span { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; color: var(--text); }

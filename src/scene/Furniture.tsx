@@ -1,11 +1,12 @@
-import { Suspense, useMemo } from 'react'
+import { Suspense, useMemo, type ReactNode } from 'react'
 import { catalogItem, getGlbUrl } from '../catalog'
 import { itemDims } from '../geometry'
 import { useLowPower } from '../lowPower'
-import { floorTexture, marbleTexture, surfaceMap, wallTexture, woodTexture } from '../textures'
+import { floorTexture, marbleTexture, wallTexture, woodTexture } from '../textures'
 import type { FloorFinish, PlacedItem, Room, WallFinish } from '../types'
 import { doorHinge, pointOnWall, wallDir, wallPieces } from '../walls'
 import { GlbSafe } from './GlbProp'
+import { TexturedGroup } from './TexturedGroup'
 import {
   ArmchairMesh,
   ArtMesh,
@@ -48,11 +49,16 @@ export function FurnitureMesh({ item, brand }: { item: PlacedItem; brand: string
   const sy = h / def.h
   const sz = d / def.d
   const glbUrl = getGlbUrl(item.catalogId) || item.glbUrl
+  const wrap = (node: ReactNode) => (
+    <TexturedGroup textureId={item.texture} tint={item.finish}>
+      {node}
+    </TexturedGroup>
+  )
 
   if (glbUrl) {
     return (
       <Suspense fallback={null}>
-        <GlbSafe url={glbUrl} w={w} d={d} h={h} />
+        <GlbSafe url={glbUrl} w={w} d={d} h={h} textureId={item.texture} tint={item.finish} />
       </Suspense>
     )
   }
@@ -187,17 +193,13 @@ export function FurnitureMesh({ item, brand }: { item: PlacedItem; brand: string
         return (
           <mesh position={[0, def.h / 2, 0]} castShadow receiveShadow>
             <boxGeometry args={[def.w, def.h, def.d]} />
-            <meshStandardMaterial
-              color={accent}
-              roughness={0.6}
-              map={item.texture ? surfaceMap(item.texture) : undefined}
-            />
+            <meshStandardMaterial color={accent} roughness={0.6} />
           </mesh>
         )
     }
   })()
 
-  return <group scale={[sx, sy, sz]}>{body}</group>
+  return wrap(<group scale={[sx, sy, sz]}>{body}</group>)
 }
 
 function Chair({ accent }: { accent: string }) {

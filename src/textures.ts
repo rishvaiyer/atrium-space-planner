@@ -374,9 +374,491 @@ export function wallTexture(kind: 'plaster' | 'paint' | 'brick' | 'wood' | 'conc
 }
 
 export function surfaceMap(kind: string): CanvasTexture | null {
-  const floors = ['oak', 'walnut', 'herringbone', 'terrazzo', 'marble', 'concrete', 'tile', 'slate', 'carpet', 'checker'] as const
-  const walls = ['plaster', 'paint', 'brick', 'wood'] as const
-  if ((floors as readonly string[]).includes(kind)) return floorTexture(kind as (typeof floors)[number])
-  if ((walls as readonly string[]).includes(kind)) return wallTexture(kind as 'plaster' | 'paint' | 'brick' | 'wood' | 'concrete' | 'tile')
-  return null
+  return itemSurface(kind)?.map ?? null
+}
+
+export type TextureGroup = 'wood' | 'stone' | 'tile' | 'metal' | 'fabric' | 'leather' | 'other'
+
+export interface ItemTexture {
+  id: string
+  name: string
+  group: TextureGroup
+}
+
+export const ITEM_TEXTURES: ItemTexture[] = [
+  { id: 'oak', name: 'Oak', group: 'wood' },
+  { id: 'walnut', name: 'Walnut', group: 'wood' },
+  { id: 'white-oak', name: 'White oak', group: 'wood' },
+  { id: 'maple', name: 'Maple', group: 'wood' },
+  { id: 'pine', name: 'Pine', group: 'wood' },
+  { id: 'teak', name: 'Teak', group: 'wood' },
+  { id: 'ebony', name: 'Ebony', group: 'wood' },
+  { id: 'rosewood', name: 'Rosewood', group: 'wood' },
+  { id: 'herringbone', name: 'Herringbone', group: 'wood' },
+  { id: 'bamboo', name: 'Bamboo', group: 'wood' },
+  { id: 'marble', name: 'Marble', group: 'stone' },
+  { id: 'black-marble', name: 'Black marble', group: 'stone' },
+  { id: 'granite', name: 'Granite', group: 'stone' },
+  { id: 'limestone', name: 'Limestone', group: 'stone' },
+  { id: 'travertine', name: 'Travertine', group: 'stone' },
+  { id: 'terrazzo', name: 'Terrazzo', group: 'stone' },
+  { id: 'slate', name: 'Slate', group: 'stone' },
+  { id: 'concrete', name: 'Concrete', group: 'stone' },
+  { id: 'tile', name: 'Ceramic tile', group: 'tile' },
+  { id: 'subway', name: 'Subway tile', group: 'tile' },
+  { id: 'hex-tile', name: 'Hex tile', group: 'tile' },
+  { id: 'mosaic', name: 'Mosaic', group: 'tile' },
+  { id: 'checker', name: 'Checker', group: 'tile' },
+  { id: 'brushed-steel', name: 'Brushed steel', group: 'metal' },
+  { id: 'chrome', name: 'Chrome', group: 'metal' },
+  { id: 'brass', name: 'Brass', group: 'metal' },
+  { id: 'copper', name: 'Copper', group: 'metal' },
+  { id: 'gold', name: 'Gold', group: 'metal' },
+  { id: 'black-metal', name: 'Black metal', group: 'metal' },
+  { id: 'rust', name: 'Rust', group: 'metal' },
+  { id: 'linen', name: 'Linen', group: 'fabric' },
+  { id: 'velvet', name: 'Velvet', group: 'fabric' },
+  { id: 'boucle', name: 'Bouclé', group: 'fabric' },
+  { id: 'wool', name: 'Wool', group: 'fabric' },
+  { id: 'canvas', name: 'Canvas', group: 'fabric' },
+  { id: 'denim', name: 'Denim', group: 'fabric' },
+  { id: 'felt', name: 'Felt', group: 'fabric' },
+  { id: 'carpet', name: 'Carpet', group: 'fabric' },
+  { id: 'leather', name: 'Leather', group: 'leather' },
+  { id: 'saddle', name: 'Saddle', group: 'leather' },
+  { id: 'white-leather', name: 'White leather', group: 'leather' },
+  { id: 'suede', name: 'Suede', group: 'leather' },
+  { id: 'plaster', name: 'Plaster', group: 'other' },
+  { id: 'paint', name: 'Paint', group: 'other' },
+  { id: 'brick', name: 'Brick', group: 'other' },
+  { id: 'wood', name: 'Wood panel', group: 'other' },
+  { id: 'lacquer', name: 'Piano lacquer', group: 'other' },
+  { id: 'plastic', name: 'Plastic', group: 'other' },
+  { id: 'cork', name: 'Cork', group: 'other' },
+  { id: 'rattan', name: 'Rattan', group: 'other' },
+  { id: 'carbon', name: 'Carbon', group: 'other' },
+]
+
+export interface SurfaceSpec {
+  map: CanvasTexture
+  roughness: number
+  metalness: number
+}
+
+function grain(ctx: CanvasRenderingContext2D, size: number, amount: number) {
+  const img = ctx.getImageData(0, 0, size, size)
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = (Math.random() - 0.5) * amount
+    img.data[i] = img.data[i] + n
+    img.data[i + 1] = img.data[i + 1] + n
+    img.data[i + 2] = img.data[i + 2] + n
+  }
+  ctx.putImageData(img, 0, 0)
+}
+
+function metalStreaks(tint: string, key: string) {
+  return makeTexture(key, 512, (ctx, size) => {
+    ctx.fillStyle = tint
+    ctx.fillRect(0, 0, size, size)
+    for (let i = 0; i < 120; i++) {
+      ctx.strokeStyle = `rgba(255,255,255,${0.04 + Math.random() * 0.08})`
+      ctx.lineWidth = 1
+      const y = Math.random() * size
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(size, y + (Math.random() - 0.5) * 6)
+      ctx.stroke()
+    }
+    grain(ctx, size, 18)
+  }, 2, 2)
+}
+
+function fabricNoise(tint: string, key: string, flecks: number) {
+  return makeTexture(key, 512, (ctx, size) => {
+    ctx.fillStyle = tint
+    ctx.fillRect(0, 0, size, size)
+    for (let i = 0; i < flecks; i++) {
+      ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.07})`
+      ctx.fillRect(Math.random() * size, Math.random() * size, 2, 2)
+    }
+    grain(ctx, size, 22)
+  }, 3, 3)
+}
+
+function hideLeather(tint: string, key: string) {
+  return makeTexture(key, 512, (ctx, size) => {
+    ctx.fillStyle = tint
+    ctx.fillRect(0, 0, size, size)
+    for (let i = 0; i < 1400; i++) {
+      ctx.fillStyle = `rgba(0,0,0,${0.03 + Math.random() * 0.06})`
+      ctx.beginPath()
+      ctx.ellipse(Math.random() * size, Math.random() * size, 1 + Math.random() * 2.2, 0.8 + Math.random() * 1.6, Math.random() * Math.PI, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    grain(ctx, size, 14)
+  }, 2, 2)
+}
+
+function mapleTexture() {
+  return woodTexture('#c4a574')
+}
+function pineTexture() {
+  return woodTexture('#c9b07a')
+}
+function teakTexture() {
+  return woodTexture('#8a5a28')
+}
+function ebonyTexture() {
+  return woodTexture('#1c1612')
+}
+function rosewoodTexture() {
+  return woodTexture('#5c2418')
+}
+function whiteOakTexture() {
+  return woodTexture('#d2c2a4')
+}
+
+function bambooTexture() {
+  return makeTexture('bamboo', 512, (ctx, size) => {
+    ctx.fillStyle = '#c4b06a'
+    ctx.fillRect(0, 0, size, size)
+    const w = 36
+    for (let x = 0; x < size; x += w) {
+      ctx.fillStyle = `hsl(42, 38%, ${52 + ((x / w) % 3) * 6}%)`
+      ctx.fillRect(x, 0, w - 2, size)
+      ctx.fillStyle = 'rgba(80, 50, 20, 0.25)'
+      ctx.fillRect(x + w - 2, 0, 2, size)
+      for (let y = 40; y < size; y += 90) {
+        ctx.fillRect(x, y, w, 4)
+      }
+    }
+  }, 3, 3)
+}
+
+function blackMarbleTexture() {
+  return makeTexture('black-marble', 512, (ctx, size) => {
+    ctx.fillStyle = '#1a1c1e'
+    ctx.fillRect(0, 0, size, size)
+    for (let i = 0; i < 16; i++) {
+      ctx.strokeStyle = `rgba(220, 220, 210, ${0.12 + Math.random() * 0.25})`
+      ctx.lineWidth = 1 + Math.random() * 2
+      ctx.beginPath()
+      ctx.moveTo(Math.random() * size, 0)
+      ctx.bezierCurveTo(Math.random() * size, size * 0.4, Math.random() * size, size * 0.7, Math.random() * size, size)
+      ctx.stroke()
+    }
+  }, 1, 1)
+}
+
+function graniteTexture() {
+  return makeTexture('granite', 512, (ctx, size) => {
+    ctx.fillStyle = '#6a6864'
+    ctx.fillRect(0, 0, size, size)
+    const chips = ['#3a3a38', '#c4c0b8', '#8a8680', '#2a2a28', '#d8d4cc']
+    for (let i = 0; i < 2200; i++) {
+      ctx.fillStyle = chips[i % chips.length]
+      ctx.fillRect(Math.random() * size, Math.random() * size, 1 + Math.random() * 3, 1 + Math.random() * 3)
+    }
+  }, 2, 2)
+}
+
+function limestoneTexture() {
+  return makeTexture('limestone', 512, (ctx, size) => {
+    ctx.fillStyle = '#d8d0c0'
+    ctx.fillRect(0, 0, size, size)
+    grain(ctx, size, 24)
+    for (let i = 0; i < 40; i++) {
+      ctx.strokeStyle = 'rgba(160, 148, 128, 0.2)'
+      ctx.beginPath()
+      ctx.moveTo(0, Math.random() * size)
+      ctx.lineTo(size, Math.random() * size)
+      ctx.stroke()
+    }
+  }, 2, 2)
+}
+
+function travertineTexture() {
+  return makeTexture('travertine', 512, (ctx, size) => {
+    ctx.fillStyle = '#dccbb0'
+    ctx.fillRect(0, 0, size, size)
+    for (let y = 0; y < size; y += 18) {
+      ctx.fillStyle = `hsla(36, 28%, ${68 + (y % 54) / 8}%, 0.5)`
+      ctx.fillRect(0, y, size, 10)
+    }
+    for (let i = 0; i < 80; i++) {
+      ctx.fillStyle = 'rgba(120, 90, 50, 0.12)'
+      ctx.beginPath()
+      ctx.ellipse(Math.random() * size, Math.random() * size, 4 + Math.random() * 10, 2, 0, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }, 2, 2)
+}
+
+function subwayTexture() {
+  return makeTexture('subway', 512, (ctx, size) => {
+    ctx.fillStyle = '#d8dce0'
+    ctx.fillRect(0, 0, size, size)
+    const bw = 128
+    const bh = 48
+    ctx.strokeStyle = '#b8bcc0'
+    ctx.lineWidth = 5
+    for (let row = 0; row < 14; row++) {
+      const ox = row % 2 ? bw / 2 : 0
+      for (let col = -1; col < 6; col++) {
+        ctx.strokeRect(col * bw + ox + 3, row * bh + 3, bw - 8, bh - 8)
+        ctx.fillStyle = row % 3 ? '#eceff2' : '#e2e6ea'
+        ctx.fillRect(col * bw + ox + 6, row * bh + 6, bw - 14, bh - 14)
+      }
+    }
+  }, 3, 3)
+}
+
+function hexTileTexture() {
+  return makeTexture('hex-tile', 512, (ctx, size) => {
+    ctx.fillStyle = '#cfd5d2'
+    ctx.fillRect(0, 0, size, size)
+    const r = 28
+    ctx.strokeStyle = '#9aa29e'
+    ctx.lineWidth = 2
+    for (let row = 0; row < 16; row++) {
+      for (let col = 0; col < 14; col++) {
+        const x = col * r * 1.75 + (row % 2 ? r * 0.87 : 0)
+        const y = row * r * 1.5
+        ctx.beginPath()
+        for (let i = 0; i < 6; i++) {
+          const a = (Math.PI / 3) * i
+          const px = x + r * Math.cos(a)
+          const py = y + r * Math.sin(a)
+          if (i === 0) ctx.moveTo(px, py)
+          else ctx.lineTo(px, py)
+        }
+        ctx.closePath()
+        ctx.fillStyle = (row + col) % 2 ? '#d8ddd8' : '#c4ccc8'
+        ctx.fill()
+        ctx.stroke()
+      }
+    }
+  }, 2, 2)
+}
+
+function mosaicTexture() {
+  return makeTexture('mosaic', 512, (ctx, size) => {
+    const step = 16
+    const cols = ['#c4b7a4', '#8a9a92', '#d8d0c4', '#6e7a72', '#e8e0d4', '#b0a090']
+    for (let y = 0; y < size; y += step) {
+      for (let x = 0; x < size; x += step) {
+        ctx.fillStyle = cols[(x / step + y / step) % cols.length]
+        ctx.fillRect(x + 1, y + 1, step - 2, step - 2)
+      }
+    }
+  }, 3, 3)
+}
+
+function linenTexture() {
+  return makeTexture('linen', 512, (ctx, size) => {
+    ctx.fillStyle = '#e4d8c4'
+    ctx.fillRect(0, 0, size, size)
+    ctx.strokeStyle = 'rgba(120, 100, 80, 0.12)'
+    ctx.lineWidth = 1
+    for (let i = 0; i < size; i += 3) {
+      ctx.beginPath()
+      ctx.moveTo(i, 0)
+      ctx.lineTo(i, size)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.moveTo(0, i)
+      ctx.lineTo(size, i)
+      ctx.stroke()
+    }
+  }, 4, 4)
+}
+
+function carbonTexture() {
+  return makeTexture('carbon', 512, (ctx, size) => {
+    ctx.fillStyle = '#1a1a1c'
+    ctx.fillRect(0, 0, size, size)
+    const s = 10
+    for (let y = 0; y < size; y += s) {
+      for (let x = 0; x < size; x += s) {
+        ctx.fillStyle = ((x + y) / s) % 2 === 0 ? '#222226' : '#141416'
+        ctx.fillRect(x, y, s, s)
+      }
+    }
+  }, 6, 6)
+}
+
+function corkTexture() {
+  return makeTexture('cork', 512, (ctx, size) => {
+    ctx.fillStyle = '#c4a05a'
+    ctx.fillRect(0, 0, size, size)
+    for (let i = 0; i < 500; i++) {
+      ctx.fillStyle = `rgba(90, 50, 20, ${0.08 + Math.random() * 0.15})`
+      ctx.beginPath()
+      ctx.ellipse(Math.random() * size, Math.random() * size, 4 + Math.random() * 12, 3 + Math.random() * 8, Math.random(), 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }, 2, 2)
+}
+
+function rattanTexture() {
+  return makeTexture('rattan', 512, (ctx, size) => {
+    ctx.fillStyle = '#b08950'
+    ctx.fillRect(0, 0, size, size)
+    ctx.strokeStyle = '#8a6230'
+    ctx.lineWidth = 6
+    for (let y = 0; y < size; y += 18) {
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(size, y)
+      ctx.stroke()
+    }
+    ctx.lineWidth = 5
+    for (let x = 0; x < size; x += 18) {
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, size)
+      ctx.stroke()
+    }
+  }, 3, 3)
+}
+
+function lacquerTexture() {
+  return makeTexture('lacquer', 256, (ctx, size) => {
+    ctx.fillStyle = '#120e0c'
+    ctx.fillRect(0, 0, size, size)
+    ctx.fillStyle = 'rgba(255,255,255,0.06)'
+    ctx.beginPath()
+    ctx.ellipse(size * 0.3, size * 0.25, 80, 30, -0.4, 0, Math.PI * 2)
+    ctx.fill()
+  }, 1, 1)
+}
+
+function plasticTexture() {
+  return makeTexture('plastic', 256, (ctx, size) => {
+    ctx.fillStyle = '#d8d8dc'
+    ctx.fillRect(0, 0, size, size)
+    grain(ctx, size, 10)
+  }, 1, 1)
+}
+
+export function itemSurface(kind: string): SurfaceSpec | null {
+  switch (kind) {
+    case 'oak':
+      return { map: oakFloorTexture(), roughness: 0.62, metalness: 0.02 }
+    case 'walnut':
+      return { map: walnutFloorTexture(), roughness: 0.6, metalness: 0.02 }
+    case 'white-oak':
+      return { map: whiteOakTexture(), roughness: 0.62, metalness: 0.02 }
+    case 'maple':
+      return { map: mapleTexture(), roughness: 0.58, metalness: 0.02 }
+    case 'pine':
+      return { map: pineTexture(), roughness: 0.64, metalness: 0.02 }
+    case 'teak':
+      return { map: teakTexture(), roughness: 0.55, metalness: 0.03 }
+    case 'ebony':
+      return { map: ebonyTexture(), roughness: 0.45, metalness: 0.04 }
+    case 'rosewood':
+      return { map: rosewoodTexture(), roughness: 0.5, metalness: 0.03 }
+    case 'herringbone':
+      return { map: herringboneTexture(), roughness: 0.6, metalness: 0.02 }
+    case 'bamboo':
+      return { map: bambooTexture(), roughness: 0.58, metalness: 0.02 }
+    case 'wood':
+      return { map: woodWallTexture(), roughness: 0.6, metalness: 0.02 }
+    case 'marble':
+      return { map: marbleTexture(), roughness: 0.28, metalness: 0.04 }
+    case 'black-marble':
+      return { map: blackMarbleTexture(), roughness: 0.22, metalness: 0.06 }
+    case 'granite':
+      return { map: graniteTexture(), roughness: 0.45, metalness: 0.05 }
+    case 'limestone':
+      return { map: limestoneTexture(), roughness: 0.7, metalness: 0.02 }
+    case 'travertine':
+      return { map: travertineTexture(), roughness: 0.65, metalness: 0.02 }
+    case 'terrazzo':
+      return { map: terrazzoTexture(), roughness: 0.4, metalness: 0.03 }
+    case 'slate':
+      return { map: slateTexture(), roughness: 0.72, metalness: 0.04 }
+    case 'concrete':
+      return { map: concreteTexture(), roughness: 0.85, metalness: 0.02 }
+    case 'tile':
+      return { map: tileTexture(), roughness: 0.35, metalness: 0.04 }
+    case 'subway':
+      return { map: subwayTexture(), roughness: 0.32, metalness: 0.05 }
+    case 'hex-tile':
+      return { map: hexTileTexture(), roughness: 0.38, metalness: 0.04 }
+    case 'mosaic':
+      return { map: mosaicTexture(), roughness: 0.4, metalness: 0.04 }
+    case 'checker':
+      return { map: checkerTexture(), roughness: 0.45, metalness: 0.02 }
+    case 'brushed-steel':
+      return { map: metalStreaks('#8a9098', 'steel'), roughness: 0.35, metalness: 0.85 }
+    case 'chrome':
+      return { map: metalStreaks('#c8cdd4', 'chrome'), roughness: 0.12, metalness: 0.95 }
+    case 'brass':
+      return { map: metalStreaks('#c4a35a', 'brass'), roughness: 0.28, metalness: 0.8 }
+    case 'copper':
+      return { map: metalStreaks('#b87333', 'copper'), roughness: 0.3, metalness: 0.82 }
+    case 'gold':
+      return { map: metalStreaks('#d4af37', 'gold'), roughness: 0.22, metalness: 0.9 }
+    case 'black-metal':
+      return { map: metalStreaks('#2a2c30', 'black-metal'), roughness: 0.4, metalness: 0.75 }
+    case 'rust':
+      return { map: metalStreaks('#8a4030', 'rust'), roughness: 0.78, metalness: 0.35 }
+    case 'linen':
+      return { map: linenTexture(), roughness: 0.9, metalness: 0 }
+    case 'velvet':
+      return { map: fabricNoise('#5c2e4a', 'velvet', 4000), roughness: 0.92, metalness: 0 }
+    case 'boucle':
+      return { map: fabricNoise('#d8cfc4', 'boucle', 9000), roughness: 0.95, metalness: 0 }
+    case 'wool':
+      return { map: fabricNoise('#8a7a68', 'wool', 7000), roughness: 0.94, metalness: 0 }
+    case 'canvas':
+      return { map: fabricNoise('#c4b8a4', 'canvas', 3000), roughness: 0.88, metalness: 0 }
+    case 'denim':
+      return { map: fabricNoise('#2c4a6e', 'denim', 5000), roughness: 0.86, metalness: 0 }
+    case 'felt':
+      return { map: fabricNoise('#6e3a3a', 'felt', 6000), roughness: 0.96, metalness: 0 }
+    case 'carpet':
+      return { map: carpetTexture(), roughness: 0.97, metalness: 0 }
+    case 'leather':
+      return { map: hideLeather('#5c3a22', 'leather'), roughness: 0.55, metalness: 0.04 }
+    case 'saddle':
+      return { map: hideLeather('#8a4a22', 'saddle'), roughness: 0.58, metalness: 0.04 }
+    case 'white-leather':
+      return { map: hideLeather('#e8e0d4', 'white-leather'), roughness: 0.52, metalness: 0.04 }
+    case 'suede':
+      return { map: hideLeather('#7a5a40', 'suede'), roughness: 0.88, metalness: 0 }
+    case 'plaster':
+      return { map: plasterTexture(), roughness: 0.9, metalness: 0 }
+    case 'paint':
+      return { map: paintWallTexture(), roughness: 0.82, metalness: 0 }
+    case 'brick':
+      return { map: brickTexture(), roughness: 0.85, metalness: 0.02 }
+    case 'lacquer':
+      return { map: lacquerTexture(), roughness: 0.12, metalness: 0.15 }
+    case 'plastic':
+      return { map: plasticTexture(), roughness: 0.4, metalness: 0.05 }
+    case 'cork':
+      return { map: corkTexture(), roughness: 0.9, metalness: 0 }
+    case 'rattan':
+      return { map: rattanTexture(), roughness: 0.75, metalness: 0.02 }
+    case 'carbon':
+      return { map: carbonTexture(), roughness: 0.45, metalness: 0.2 }
+    default:
+      return null
+  }
+}
+
+const previewCache = new Map<string, string>()
+
+export function texturePreview(id: string): string {
+  const hit = previewCache.get(id)
+  if (hit) return hit
+  const spec = itemSurface(id)
+  if (!spec) return ''
+  const img = spec.map.image as HTMLCanvasElement
+  const url = img.toDataURL('image/png')
+  previewCache.set(id, url)
+  return url
 }

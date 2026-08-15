@@ -2,7 +2,23 @@ import { Component, useLayoutEffect, useMemo, useRef, type ErrorInfo, type React
 import { useGLTF } from '@react-three/drei'
 import { Box3, Group, Vector3 } from 'three'
 
-export function GlbProp({ url, w, d, h }: { url: string; w: number; d: number; h: number }) {
+import { applyItemTexture } from './applyTexture'
+
+export function GlbProp({
+  url,
+  w,
+  d,
+  h,
+  textureId,
+  tint,
+}: {
+  url: string
+  w: number
+  d: number
+  h: number
+  textureId?: string
+  tint?: string
+}) {
   const { scene } = useGLTF(url)
   const clone = useMemo(() => scene.clone(true), [scene])
   const ref = useRef<Group>(null)
@@ -24,8 +40,8 @@ export function GlbProp({ url, w, d, h }: { url: string; w: number; d: number; h
     clone.position.x -= center.x
     clone.position.z -= center.z
     clone.position.y -= fitted.min.y
-    void ref.current
-  }, [clone, w, d, h])
+    applyItemTexture(clone, textureId, tint)
+  }, [clone, w, d, h, textureId, tint])
 
   return (
     <group ref={ref}>
@@ -47,7 +63,21 @@ class GlbErrorBoundary extends Component<{ children: ReactNode; fallback: ReactN
   }
 }
 
-export function GlbSafe({ url, w, d, h }: { url: string; w: number; d: number; h: number }) {
+export function GlbSafe({
+  url,
+  w,
+  d,
+  h,
+  textureId,
+  tint,
+}: {
+  url: string
+  w: number
+  d: number
+  h: number
+  textureId?: string
+  tint?: string
+}) {
   return (
     <GlbErrorBoundary
       fallback={
@@ -57,7 +87,7 @@ export function GlbSafe({ url, w, d, h }: { url: string; w: number; d: number; h
         </mesh>
       }
     >
-      <GlbProp url={url} w={w} d={d} h={h} />
+      <GlbProp url={url} w={w} d={d} h={h} textureId={textureId} tint={tint} />
     </GlbErrorBoundary>
   )
 }
