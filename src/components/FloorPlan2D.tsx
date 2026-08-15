@@ -12,9 +12,14 @@ export function FloorPlan2D() {
   const showGrid = usePlanner((s) => s.showGrid)
   const showDimensions = usePlanner((s) => s.showDimensions)
   const showFurniture = usePlanner((s) => s.showFurniture)
-  const showElectrical = usePlanner((s) => s.showElectrical)
+  const showLighting = usePlanner((s) => s.showLighting)
   const showEgress = usePlanner((s) => s.showEgress)
   const showWalls = usePlanner((s) => s.showWalls)
+  const showOpenings = usePlanner((s) => s.showOpenings)
+  const showLabels = usePlanner((s) => s.showLabels)
+  const showNotesLayer = usePlanner((s) => s.showNotes)
+  const showOccupancy = usePlanner((s) => s.showOccupancy)
+  const notes = usePlanner((s) => s.notes)
   const brand = usePlanner((s) => s.brandColor)
   const pending = usePlanner((s) => s.pendingCatalogId)
   const tool = usePlanner((s) => s.tool)
@@ -70,7 +75,7 @@ export function FloorPlan2D() {
     const p = toWorld(e.clientX, e.clientY)
     const state = usePlanner.getState()
 
-    if (e.button === 1 || e.altKey || e.button === 2) {
+    if (e.button === 1 || e.altKey || e.button === 2 || tool === 'pan') {
       drag.current = { mode: 'pan', ids: [], lastX: e.clientX, lastZ: e.clientY, moved: false }
       e.currentTarget.setPointerCapture(e.pointerId)
       return
@@ -85,12 +90,30 @@ export function FloorPlan2D() {
       return
     }
 
+    if (tool === 'note') {
+      const hitNote = notes.find((n) => Math.hypot(n.x - p.x, n.z - p.z) < 0.22)
+      if (hitNote) state.removeNote(hitNote.id)
+      else state.addNote(p.x, p.z)
+      return
+    }
+
+    if (tool === 'paint') {
+      const hit = hitTest(items, p.x, p.z, showFurniture, showLighting)
+      if (hit) state.setFinish(hit.id, state.brandColor)
+      return
+    }
+
+    if (tool === 'stamp') {
+      if (state.selectedIds.length) state.stampAt(p.x, p.z)
+      return
+    }
+
     if (pending) {
       state.placeItem(pending, p.x, p.z)
       return
     }
 
-    const hit = hitTest(items, p.x, p.z, showFurniture, showElectrical)
+    const hit = hitTest(items, p.x, p.z, showFurniture, showLighting)
     if (hit) {
       state.select(hit.id, e.shiftKey)
       const ids = e.shiftKey
@@ -143,7 +166,7 @@ export function FloorPlan2D() {
 
   return (
     <div
-      className={`viewport2d world-${worldId} ${pending ? 'placing' : ''}`}
+      className={`viewport2d world-${worldId} ${pending ? 'placing' : ''} tool-${tool}`}
       ref={wrapRef}
       onWheel={onWheel}
       onPointerDown={onPointerDown}
@@ -177,7 +200,8 @@ export function FloorPlan2D() {
             <rect x={-t} y={room.depth} width={room.width + t * 2} height={t} />
             <rect x={-t} y={0} width={t} height={room.depth} />
             <rect x={room.width} y={0} width={t} height={room.depth} />
-            {room.doors.map((door) => {
+            {showOpenings &&
+              room.doors.map((door) => {
               const along = door.wall === 'n' || door.wall === 's'
               const x = door.wall === 'w' ? -t - 0.02 : door.wall === 'e' ? room.width - 0.02 : door.offset
               const y = door.wall === 's' ? -t - 0.02 : door.wall === 'n' ? room.depth - 0.02 : door.offset
@@ -192,7 +216,8 @@ export function FloorPlan2D() {
                 />
               )
             })}
-            {room.doors.map((door) => (
+            {showOpenings &&
+              room.doors.map((door) => (
               <DoorSwing key={`${door.id}-swing`} door={door} roomWidth={room.width} roomDepth={room.depth} />
             ))}
           </g>
@@ -210,7 +235,7 @@ export function FloorPlan2D() {
 
         {items.map((item) => {
           const def = catalogItem(item.catalogId)
-          if (!showElectrical && def.costGroup === 'lighting') return null
+          if (!showLighting && def.costGroup === 'lighting') return null
           if (!showFurniture && def.costGroup !== 'lighting') return null
           return (
             <PlanItem
@@ -218,9 +243,21 @@ export function FloorPlan2D() {
               item={item}
               selected={selectedIds.includes(item.id)}
               brand={brand}
+              showLabel={showLabels}
+              showOccupancy={showOccupancy}
             />
           )
         })}
+
+        {showNotesLayer &&
+          notes.map((n) => (
+            <g key={n.id} className="plan-note" transform={`translate(${n.x}, ${n.z})`}>
+              <circle r={0.09} />
+              <text x={0.14} y={0.05}>
+                {n.text}
+              </text>
+            </g>
+          ))}
 
         {showDimensions && (
           <g className="dims">
@@ -282,12 +319,12 @@ function hitTest(
   x: number,
   z: number,
   furniture: boolean,
-  electrical: boolean,
+  lighting: boolean,
 ): PlacedItem | undefined {
   for (let i = items.length - 1; i >= 0; i--) {
     const item = items[i]
     const def = catalogItem(item.catalogId)
-    if (!electrical && def.costGroup === 'lighting') continue
+    if (!lighting && def.costGroup === 'lighting') continue
     if (!furniture && def.costGroup !== 'lighting') continue
     const box = itemAabb(item)
     if (x >= box.minX && x <= box.maxX && z >= box.minZ && z <= box.maxZ) return item
@@ -299,10 +336,14 @@ function PlanItem({
   item,
   selected,
   brand,
+  showLabel,
+  showOccupancy,
 }: {
   item: PlacedItem
   selected: boolean
   brand: string
+  showLabel: boolean
+  showOccupancy: boolean
 }) {
   const def = catalogItem(item.catalogId)
   const fill =
@@ -370,6 +411,14 @@ function PlanItem({
           <rect x={-def.w / 2} y={-def.d / 2} width={def.w} height={def.d} fill="#cfd5d8" />
           <rect x={-def.w / 2 + 0.06} y={-def.d / 2 + 0.06} width={def.w - 0.12} height={def.d - 0.12} fill="none" stroke="#5a656c" strokeWidth={0.03} />
         </>
+      )}
+      {showOccupancy && def.isSeat && (
+        <circle r={0.08} className="occ" cy={0} />
+      )}
+      {showLabel && (
+        <text className="item-label" y={def.d / 2 + 0.18} textAnchor="middle">
+          {def.name}
+        </text>
       )}
       {selected && (
         <rect

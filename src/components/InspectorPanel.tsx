@@ -3,10 +3,22 @@ import { catalogItem } from '../catalog'
 import { analyzeLayout } from '../compliance'
 import { formatMm, formatMoney } from '../geometry'
 import { usePlanner } from '../store'
-import type { BudgetTier, FloorFinish, Jurisdiction } from '../types'
+import type { BudgetTier, FloorFinish, Jurisdiction, WallFinish } from '../types'
 
 const BRANDS = ['#7ee0d6', '#8ab4ff', '#d7dde6', '#111318', '#c4b5fd', '#fb7185']
-const FLOORS: FloorFinish[] = ['oak', 'terrazzo', 'concrete', 'tile']
+const FLOORS: FloorFinish[] = [
+  'oak',
+  'walnut',
+  'herringbone',
+  'terrazzo',
+  'marble',
+  'concrete',
+  'tile',
+  'slate',
+  'carpet',
+  'checker',
+]
+const WALLS: WallFinish[] = ['plaster', 'paint', 'brick', 'wood', 'concrete', 'tile']
 const TIERS: BudgetTier[] = ['budget', 'standard', 'premium']
 const CODES: Jurisdiction[] = ['IBC', 'NBC', 'Eurocode']
 
@@ -16,6 +28,7 @@ export function InspectorPanel() {
   const room = usePlanner((s) => s.room)
   const brand = usePlanner((s) => s.brandColor)
   const floor = usePlanner((s) => s.floorFinish)
+  const wall = usePlanner((s) => s.wallFinish)
   const time = usePlanner((s) => s.timeOfDay)
   const tier = usePlanner((s) => s.budgetTier)
   const cap = usePlanner((s) => s.budgetCap)
@@ -101,6 +114,16 @@ export function InspectorPanel() {
             {FLOORS.map((f) => (
               <button key={f} className={floor === f ? 'on' : ''} onClick={() => usePlanner.getState().setFloorFinish(f)}>
                 {f}
+              </button>
+            ))}
+          </div>
+        </label>
+        <label className="field">
+          Wall finish
+          <div className="pills">
+            {WALLS.map((w) => (
+              <button key={w} className={wall === w ? 'on' : ''} onClick={() => usePlanner.getState().setWallFinish(w)}>
+                {w}
               </button>
             ))}
           </div>

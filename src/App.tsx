@@ -53,6 +53,30 @@ export default function App() {
         state.clearMeasure()
         return
       }
+      if (e.key === 'v' || e.key === 'V') {
+        state.setTool('select')
+        return
+      }
+      if (e.key === 'h' || e.key === 'H') {
+        state.setTool('pan')
+        return
+      }
+      if (e.key === 'm' || e.key === 'M') {
+        state.setTool('measure')
+        return
+      }
+      if (e.key === 'c' || e.key === 'C') {
+        state.setTool('paint')
+        return
+      }
+      if (e.key === 'n' || e.key === 'N') {
+        state.setTool('note')
+        return
+      }
+      if (e.key === 't' || e.key === 'T') {
+        state.setTool('stamp')
+        return
+      }
       if (e.key === 'r' || e.key === 'R') {
         state.rotateSelected(Math.PI / 2)
         return

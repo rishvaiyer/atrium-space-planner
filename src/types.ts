@@ -1,6 +1,17 @@
 export type Category = 'restaurant' | 'office' | 'retail' | 'habitat'
-export type Tool = 'select' | 'measure'
-export type FloorFinish = 'oak' | 'terrazzo' | 'concrete' | 'tile'
+export type Tool = 'select' | 'measure' | 'pan' | 'paint' | 'stamp' | 'note'
+export type FloorFinish =
+  | 'oak'
+  | 'walnut'
+  | 'herringbone'
+  | 'terrazzo'
+  | 'marble'
+  | 'concrete'
+  | 'tile'
+  | 'slate'
+  | 'carpet'
+  | 'checker'
+export type WallFinish = 'plaster' | 'paint' | 'brick' | 'wood' | 'concrete' | 'tile'
 export type BudgetTier = 'budget' | 'standard' | 'premium'
 export type Jurisdiction = 'IBC' | 'NBC' | 'Eurocode'
 export type WallSide = 'n' | 's' | 'e' | 'w'
@@ -68,6 +79,13 @@ export interface EgressPath {
   fromId: string
   points: { x: number; z: number }[]
   length: number
+}
+
+export interface Note {
+  id: string
+  x: number
+  z: number
+  text: string
 }
 
 export interface CostLine {

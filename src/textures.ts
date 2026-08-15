@@ -218,12 +218,154 @@ export function planetTexture(id: string): CanvasTexture {
   }, 1, 1)
 }
 
-export function floorTexture(kind: 'oak' | 'terrazzo' | 'concrete' | 'tile'): CanvasTexture {
+export function walnutFloorTexture(): CanvasTexture {
+  return makeTexture('walnut-floor', 512, (ctx, size) => {
+    const plank = 36
+    for (let y = 0; y < size; y += plank) {
+      ctx.fillStyle = `hsl(24, 28%, ${22 + ((y / plank) % 4) * 4}%)`
+      ctx.fillRect(0, y, size, plank - 1)
+      ctx.fillStyle = 'rgba(10, 6, 4, 0.5)'
+      ctx.fillRect(0, y + plank - 1, size, 1)
+    }
+  }, 5, 5)
+}
+
+export function herringboneTexture(): CanvasTexture {
+  return makeTexture('herringbone', 512, (ctx, size) => {
+    ctx.fillStyle = '#8a6238'
+    ctx.fillRect(0, 0, size, size)
+    const w = 90
+    const h = 28
+    for (let row = -2; row < 22; row++) {
+      for (let col = -2; col < 10; col++) {
+        const x = col * w + (row % 2) * (w / 2)
+        const y = row * (h - 4)
+        ctx.fillStyle = row % 2 ? '#7a5530' : '#9a7044'
+        ctx.save()
+        ctx.translate(x, y)
+        ctx.rotate(row % 2 ? 0.55 : -0.55)
+        ctx.fillRect(0, 0, w - 4, h - 6)
+        ctx.restore()
+      }
+    }
+  }, 2, 2)
+}
+
+export function carpetTexture(): CanvasTexture {
+  return makeTexture('carpet', 512, (ctx, size) => {
+    ctx.fillStyle = '#5c4a3e'
+    ctx.fillRect(0, 0, size, size)
+    for (let i = 0; i < 8000; i++) {
+      ctx.fillStyle = `rgba(255, 240, 220, ${Math.random() * 0.08})`
+      ctx.fillRect(Math.random() * size, Math.random() * size, 2, 2)
+    }
+  }, 3, 3)
+}
+
+export function slateTexture(): CanvasTexture {
+  return makeTexture('slate', 512, (ctx, size) => {
+    ctx.fillStyle = '#4a5058'
+    ctx.fillRect(0, 0, size, size)
+    for (let i = 0; i < 40; i++) {
+      ctx.strokeStyle = `rgba(20, 22, 26, ${0.12 + Math.random() * 0.2})`
+      ctx.beginPath()
+      ctx.moveTo(0, Math.random() * size)
+      ctx.lineTo(size, Math.random() * size)
+      ctx.stroke()
+    }
+  }, 2, 2)
+}
+
+export function checkerTexture(): CanvasTexture {
+  return makeTexture('checker', 512, (ctx, size) => {
+    const step = 64
+    for (let y = 0; y < size; y += step) {
+      for (let x = 0; x < size; x += step) {
+        ctx.fillStyle = ((x + y) / step) % 2 === 0 ? '#e8e4dc' : '#2a2c30'
+        ctx.fillRect(x, y, step, step)
+      }
+    }
+  }, 4, 4)
+}
+
+export function brickTexture(): CanvasTexture {
+  return makeTexture('brick', 512, (ctx, size) => {
+    ctx.fillStyle = '#6a3a32'
+    ctx.fillRect(0, 0, size, size)
+    const bw = 86
+    const bh = 36
+    for (let row = 0; row < 20; row++) {
+      const ox = row % 2 ? bw / 2 : 0
+      for (let col = -1; col < 8; col++) {
+        ctx.fillStyle = `hsl(12, 32%, ${28 + ((row + col) % 5) * 4}%)`
+        ctx.fillRect(col * bw + ox + 2, row * bh + 2, bw - 6, bh - 6)
+      }
+    }
+  }, 2, 2)
+}
+
+export function paintWallTexture(): CanvasTexture {
+  return makeTexture('paint-wall', 256, (ctx, size) => {
+    ctx.fillStyle = '#f2eee6'
+    ctx.fillRect(0, 0, size, size)
+    for (let i = 0; i < 200; i++) {
+      ctx.fillStyle = `rgba(180, 170, 150, ${Math.random() * 0.05})`
+      ctx.fillRect(Math.random() * size, Math.random() * size, 12, 12)
+    }
+  }, 1, 1)
+}
+
+export function woodWallTexture(): CanvasTexture {
+  return woodTexture('#6b4428')
+}
+
+export function floorTexture(
+  kind:
+    | 'oak'
+    | 'walnut'
+    | 'herringbone'
+    | 'terrazzo'
+    | 'marble'
+    | 'concrete'
+    | 'tile'
+    | 'slate'
+    | 'carpet'
+    | 'checker',
+): CanvasTexture {
   switch (kind) {
     case 'oak':
       return oakFloorTexture()
+    case 'walnut':
+      return walnutFloorTexture()
+    case 'herringbone':
+      return herringboneTexture()
     case 'terrazzo':
       return terrazzoTexture()
+    case 'marble':
+      return marbleTexture()
+    case 'concrete':
+      return concreteTexture()
+    case 'tile':
+      return tileTexture()
+    case 'slate':
+      return slateTexture()
+    case 'carpet':
+      return carpetTexture()
+    case 'checker':
+      return checkerTexture()
+  }
+}
+
+export function wallTexture(kind: 'plaster' | 'paint' | 'brick' | 'wood' | 'concrete' | 'tile'): CanvasTexture {
+  switch (kind) {
+    case 'plaster':
+      return plasterTexture()
+    case 'paint':
+      return paintWallTexture()
+    case 'brick':
+      return brickTexture()
+    case 'wood':
+      return woodWallTexture()
     case 'concrete':
       return concreteTexture()
     case 'tile':

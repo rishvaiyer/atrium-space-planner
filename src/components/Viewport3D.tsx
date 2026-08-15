@@ -7,7 +7,7 @@ import { LowPower } from '../lowPower'
 import { useIsMobile } from '../media'
 import { usePlanner } from '../store'
 import { planetTexture } from '../textures'
-import type { FloorFinish, PlacedItem, Room } from '../types'
+import type { FloorFinish, PlacedItem, Room, WallFinish } from '../types'
 import { worldOf, type World, type WorldId } from '../worlds'
 import { GLBoundary } from './GLBoundary'
 
@@ -36,7 +36,8 @@ export function Viewport3D() {
   const time = usePlanner((s) => s.timeOfDay)
   const items = usePlanner((s) => s.items)
   const showFurniture = usePlanner((s) => s.showFurniture)
-  const showElectrical = usePlanner((s) => s.showElectrical)
+  const showLighting = usePlanner((s) => s.showLighting)
+  const wallFinish = usePlanner((s) => s.wallFinish)
   const room = usePlanner((s) => s.room)
   const floor = usePlanner((s) => s.floorFinish)
   const showWalls = usePlanner((s) => s.showWalls)
@@ -74,7 +75,7 @@ export function Viewport3D() {
         room={room}
         items={items}
         showFurniture={showFurniture}
-        showElectrical={showElectrical}
+        showLighting={showLighting}
         brand={brand}
         selectedIds={selectedIds}
         floor={floor}
@@ -123,9 +124,10 @@ export function Viewport3D() {
             <Scene
               items={items}
               showFurniture={showFurniture}
-              showElectrical={showElectrical}
+              showLighting={showLighting}
               room={room}
               floor={floor}
+              wallFinish={wallFinish}
               showWalls={showWalls && worldId === 'earth'}
               brand={brand}
               selectedIds={selectedIds}
@@ -158,25 +160,27 @@ function Planet({ world }: { world: World }) {
 function Scene({
   items,
   showFurniture,
-  showElectrical,
+  showLighting,
   room,
   floor,
+  wallFinish,
   showWalls,
   brand,
   selectedIds,
 }: {
   items: PlacedItem[]
   showFurniture: boolean
-  showElectrical: boolean
+  showLighting: boolean
   room: Room
   floor: FloorFinish
+  wallFinish: WallFinish
   showWalls: boolean
   brand: string
   selectedIds: string[]
 }) {
   return (
     <group>
-      <RoomMesh room={room} floor={floor} showWalls={showWalls} />
+      <RoomMesh room={room} floor={floor} wallFinish={wallFinish} showWalls={showWalls} />
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[room.width / 2, 0.01, room.depth / 2]}
@@ -195,7 +199,7 @@ function Scene({
       </mesh>
       {items.map((item) => {
         const def = catalogItem(item.catalogId)
-        if (!showElectrical && def.costGroup === 'lighting') return null
+        if (!showLighting && def.costGroup === 'lighting') return null
         if (!showFurniture && def.costGroup !== 'lighting') return null
         return (
           <PlacedMesh
@@ -253,7 +257,7 @@ function IsoView({
   room,
   items,
   showFurniture,
-  showElectrical,
+  showLighting,
   brand,
   selectedIds,
   floor,
@@ -262,7 +266,7 @@ function IsoView({
   room: Room
   items: PlacedItem[]
   showFurniture: boolean
-  showElectrical: boolean
+  showLighting: boolean
   brand: string
   selectedIds: string[]
   floor: FloorFinish
@@ -275,7 +279,17 @@ function IsoView({
     iso(0, room.depth),
   ]
   const earthFloor =
-    floor === 'oak' ? '#8d7358' : floor === 'terrazzo' ? '#b8bdc6' : floor === 'tile' ? '#c5ccd4' : '#8d939c'
+    floor === 'oak' || floor === 'walnut' || floor === 'herringbone'
+      ? '#8d7358'
+      : floor === 'marble' || floor === 'terrazzo'
+        ? '#c5c0b4'
+        : floor === 'tile' || floor === 'checker'
+          ? '#c5ccd4'
+          : floor === 'slate'
+            ? '#5a616a'
+            : floor === 'carpet'
+              ? '#5c4a3e'
+              : '#8d939c'
   const floorFill =
     worldId === 'mars' ? '#8a4a32' : worldId === 'moon' ? '#8d9198' : worldId === 'titan' ? '#6a5a40' : earthFloor
 
@@ -299,7 +313,7 @@ function IsoView({
         />
         {items.map((item) => {
           const def = catalogItem(item.catalogId)
-          if (!showElectrical && def.costGroup === 'lighting') return null
+          if (!showLighting && def.costGroup === 'lighting') return null
           if (!showFurniture && def.costGroup !== 'lighting') return null
           const a = iso(item.x - def.w / 2, item.z - def.d / 2)
           const b = iso(item.x + def.w / 2, item.z - def.d / 2)

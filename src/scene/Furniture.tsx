@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import { catalogItem } from '../catalog'
 import { useLowPower } from '../lowPower'
-import { floorTexture, marbleTexture, plasterTexture, woodTexture } from '../textures'
-import type { FloorFinish, PlacedItem, Room } from '../types'
+import { floorTexture, marbleTexture, wallTexture, woodTexture } from '../textures'
+import type { FloorFinish, PlacedItem, Room, WallFinish } from '../types'
 
 const LEGS: [number, number][] = [
   [-1, -1],
@@ -468,13 +468,15 @@ function Isru() {
 export function RoomMesh({
   room,
   floor,
+  wallFinish,
   showWalls,
 }: {
   room: Room
   floor: FloorFinish
+  wallFinish: WallFinish
   showWalls: boolean
 }) {
-  const plaster = useMemo(() => plasterTexture(), [])
+  const plaster = useMemo(() => wallTexture(wallFinish), [wallFinish])
   const { width: w, depth: d, wallHeight: h, wallThickness: t } = room
 
   const south = pieces(w, room.doors.filter((door) => door.wall === 's'))
@@ -605,7 +607,8 @@ function pieces(length: number, doors: { offset: number; width: number }[]) {
   return out
 }
 
-function FloorMat({ kind }: { kind: 'oak' | 'terrazzo' | 'concrete' | 'tile' }) {
+function FloorMat({ kind }: { kind: FloorFinish }) {
   const map = useMemo(() => floorTexture(kind), [kind])
-  return <meshStandardMaterial map={map} roughness={kind === 'oak' ? 0.55 : 0.4} />
+  const rough = kind === 'oak' || kind === 'walnut' || kind === 'herringbone' ? 0.55 : kind === 'marble' ? 0.2 : 0.4
+  return <meshStandardMaterial map={map} roughness={rough} />
 }

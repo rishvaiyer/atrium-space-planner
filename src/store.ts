@@ -6,9 +6,11 @@ import type {
   Category,
   FloorFinish,
   Jurisdiction,
+  Note,
   PlacedItem,
   Room,
   Tool,
+  WallFinish,
 } from './types'
 import type { WorldId } from './worlds'
 import { worldOf } from './worlds'
@@ -30,8 +32,14 @@ export interface PlannerState {
   showEgress: boolean
   showDimensions: boolean
   showGrid: boolean
+  showLabels: boolean
+  showNotes: boolean
+  showOpenings: boolean
+  showOccupancy: boolean
+  showLighting: boolean
   brandColor: string
   floorFinish: FloorFinish
+  wallFinish: WallFinish
   timeOfDay: number
   budgetTier: BudgetTier
   budgetCap: number
@@ -39,6 +47,7 @@ export interface PlannerState {
   worldId: WorldId
   isDragging3d: boolean
   measure: { a: { x: number; z: number } | null; b: { x: number; z: number } | null }
+  notes: Note[]
   past: PlacedItem[][]
   future: PlacedItem[][]
   select: (id: string | null, additive?: boolean) => void
@@ -54,6 +63,11 @@ export interface PlannerState {
   setFinish: (id: string, finish: string) => void
   setBrandColor: (color: string) => void
   setFloorFinish: (floorFinish: FloorFinish) => void
+  setWallFinish: (wallFinish: WallFinish) => void
+  cycleSnap: () => void
+  stampAt: (x: number, z: number) => void
+  addNote: (x: number, z: number) => void
+  removeNote: (id: string) => void
   setTimeOfDay: (timeOfDay: number) => void
   setBudgetTier: (budgetTier: BudgetTier) => void
   setJurisdiction: (jurisdiction: Jurisdiction) => void
@@ -66,6 +80,11 @@ export interface PlannerState {
       | 'showEgress'
       | 'showDimensions'
       | 'showGrid'
+      | 'showLabels'
+      | 'showNotes'
+      | 'showOpenings'
+      | 'showOccupancy'
+      | 'showLighting'
       | 'snapOn'
       | 'isDragging3d',
     value: boolean,
@@ -97,8 +116,14 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   showEgress: true,
   showDimensions: true,
   showGrid: true,
+  showLabels: false,
+  showNotes: true,
+  showOpenings: true,
+  showOccupancy: false,
+  showLighting: true,
   brandColor: '#7ee0d6',
   floorFinish: 'concrete',
+  wallFinish: 'plaster',
   timeOfDay: 18.5,
   budgetTier: 'standard',
   budgetCap: 18000,
@@ -106,6 +131,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   worldId: 'earth',
   isDragging3d: false,
   measure: { a: null, b: null },
+  notes: [],
   past: [],
   future: [],
 
@@ -220,6 +246,46 @@ export const usePlanner = create<PlannerState>((set, get) => ({
 
   setBrandColor: (brandColor) => set((s) => (s.brandColor === brandColor ? s : { brandColor })),
   setFloorFinish: (floorFinish) => set((s) => (s.floorFinish === floorFinish ? s : { floorFinish })),
+  setWallFinish: (wallFinish) => set((s) => (s.wallFinish === wallFinish ? s : { wallFinish })),
+  cycleSnap: () =>
+    set((s) => {
+      const next = s.snap === 0.05 ? 0.1 : s.snap === 0.1 ? 0.2 : 0.05
+      return { snap: next, snapOn: true }
+    }),
+  stampAt: (x, z) => {
+    const { selectedIds, items, commitHistory, snapOn, snap } = get()
+    const sel = items.filter((it) => selectedIds.includes(it.id))
+    if (!sel.length) return
+    commitHistory()
+    const origin = sel[0]
+    const sx = snapOn ? snapTo(x, snap) : x
+    const sz = snapOn ? snapTo(z, snap) : z
+    const copies = sel.map((it) => ({
+      ...it,
+      id: uid(),
+      x: sx + (it.x - origin.x),
+      z: sz + (it.z - origin.z),
+    }))
+    set({
+      items: [...get().items, ...copies],
+      selectedIds: copies.map((c) => c.id),
+    })
+  },
+  addNote: (x, z) => {
+    const { notes, snapOn, snap } = get()
+    set({
+      notes: [
+        ...notes,
+        {
+          id: uid(),
+          x: snapOn ? snapTo(x, snap) : x,
+          z: snapOn ? snapTo(z, snap) : z,
+          text: `N${notes.length + 1}`,
+        },
+      ],
+    })
+  },
+  removeNote: (id) => set((s) => ({ notes: s.notes.filter((n) => n.id !== id) })),
   setTimeOfDay: (timeOfDay) => set((s) => (s.timeOfDay === timeOfDay ? s : { timeOfDay })),
   setBudgetTier: (budgetTier) => set((s) => (s.budgetTier === budgetTier ? s : { budgetTier })),
   setJurisdiction: (jurisdiction) =>
@@ -287,6 +353,6 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   resetLayout: () => {
     const { worldId, commitHistory } = get()
     commitHistory()
-    set({ items: layoutForWorld(worldId), selectedIds: [], pendingCatalogId: null })
+    set({ items: layoutForWorld(worldId), selectedIds: [], pendingCatalogId: null, notes: [] })
   },
 }))

@@ -19,9 +19,15 @@ const OCCUPANT_M2 = 1.4
 
 const FLOOR_RATE: Record<FloorFinish, Record<BudgetTier, number>> = {
   oak: { budget: 42, standard: 68, premium: 110 },
+  walnut: { budget: 48, standard: 78, premium: 128 },
+  herringbone: { budget: 55, standard: 92, premium: 150 },
   terrazzo: { budget: 55, standard: 90, premium: 145 },
+  marble: { budget: 72, standard: 120, premium: 210 },
   concrete: { budget: 18, standard: 32, premium: 54 },
   tile: { budget: 28, standard: 48, premium: 86 },
+  slate: { budget: 36, standard: 64, premium: 108 },
+  carpet: { budget: 14, standard: 26, premium: 48 },
+  checker: { budget: 22, standard: 38, premium: 64 },
 }
 
 const TIER_MULT: Record<BudgetTier, number> = {
