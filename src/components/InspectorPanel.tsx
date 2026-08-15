@@ -5,7 +5,7 @@ import { formatMm, formatMoney } from '../geometry'
 import { usePlanner } from '../store'
 import type { BudgetTier, FloorFinish, Jurisdiction, WallFinish } from '../types'
 
-const BRANDS = ['#b4532a', '#1c1916', '#e8dfd2', '#3d6b8a', '#6b5344', '#c45c4a']
+const BRANDS = ['#ff4d00', '#111111', '#efeae2', '#2f6fed', '#6b5344', '#c45c4a']
 const FLOORS: FloorFinish[] = [
   'oak',
   'walnut',
@@ -46,22 +46,56 @@ export function InspectorPanel() {
     }
   }, [room, items, tier, floor, cap, jurisdiction, worldId])
 
-  const hourLabel =
-    `${Math.floor(time).toString().padStart(2, '0')}:${Math.round((time % 1) * 60)
-      .toString()
-      .padStart(2, '0')}`
+  const hourLabel = `${Math.floor(time).toString().padStart(2, '0')}:${Math.round((time % 1) * 60)
+    .toString()
+    .padStart(2, '0')}`
+
+  const failed = analysis?.checks.filter((c) => !c.ok).length ?? 0
 
   return (
     <aside className="panel inspector">
+      <section className="estimate hero">
+        <div className="panel-kicker">Capex</div>
+        {analysis ? (
+          <>
+            <strong className="hero-num">{formatMoney(analysis.total)}</strong>
+            <div className="cap-bar">
+              <div
+                className={analysis.budgetOk ? 'ok' : 'bad'}
+                style={{ width: `${Math.min(100, (analysis.total / analysis.cap) * 100)}%` }}
+              />
+            </div>
+            <div className="cap-label">Cap {formatMoney(analysis.cap)}</div>
+            <div className="pills">
+              {TIERS.map((t) => (
+                <button key={t} type="button" className={tier === t ? 'on' : ''} onClick={() => usePlanner.getState().setBudgetTier(t)}>
+                  {t}
+                </button>
+              ))}
+            </div>
+            <ul className="lines">
+              {analysis.lines.map((line) => (
+                <li key={line.group}>
+                  <span>{line.label}</span>
+                  <b>{formatMoney(line.amount)}</b>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="empty">Estimate unavailable.</p>
+        )}
+      </section>
+
       <section>
-        <div className="panel-kicker">02 · Object</div>
+        <div className="panel-kicker">Selection</div>
         {selected && def ? (
           <>
             <h3>{def.name}</h3>
             <div className="kv">
               <span>SKU</span>
               <b>{def.sku}</b>
-              <span>X / Z</span>
+              <span>Position</span>
               <b>
                 {selected.x.toFixed(2)} · {selected.z.toFixed(2)} m
               </b>
@@ -78,6 +112,7 @@ export function InspectorPanel() {
                 {BRANDS.map((c) => (
                   <button
                     key={c}
+                    type="button"
                     className={selected.finish === c || (!selected.finish && c === brand) ? 'on' : ''}
                     style={{ background: c }}
                     onClick={() => usePlanner.getState().setFinish(selected.id, c)}
@@ -88,12 +123,12 @@ export function InspectorPanel() {
             </label>
           </>
         ) : (
-          <p className="empty">Select a fixture to inspect position, rotation, and finish.</p>
+          <p className="empty">Click a fixture on the plan or in 3D.</p>
         )}
       </section>
 
       <section>
-        <div className="panel-kicker">03 · Environment</div>
+        <div className="panel-kicker">Room</div>
         <label className="field">
           Time of day
           <div className="slider-row">
@@ -109,31 +144,32 @@ export function InspectorPanel() {
           </div>
         </label>
         <label className="field">
-          Floor finish
+          Floor
           <div className="pills">
             {FLOORS.map((f) => (
-              <button key={f} className={floor === f ? 'on' : ''} onClick={() => usePlanner.getState().setFloorFinish(f)}>
+              <button key={f} type="button" className={floor === f ? 'on' : ''} onClick={() => usePlanner.getState().setFloorFinish(f)}>
                 {f}
               </button>
             ))}
           </div>
         </label>
         <label className="field">
-          Wall finish
+          Walls
           <div className="pills">
             {WALLS.map((w) => (
-              <button key={w} className={wall === w ? 'on' : ''} onClick={() => usePlanner.getState().setWallFinish(w)}>
+              <button key={w} type="button" className={wall === w ? 'on' : ''} onClick={() => usePlanner.getState().setWallFinish(w)}>
                 {w}
               </button>
             ))}
           </div>
         </label>
         <label className="field">
-          Brand color
+          Brand
           <div className="swatches">
             {BRANDS.map((c) => (
               <button
                 key={c}
+                type="button"
                 className={brand === c ? 'on' : ''}
                 style={{ background: c }}
                 onClick={() => usePlanner.getState().setBrandColor(c)}
@@ -145,93 +181,59 @@ export function InspectorPanel() {
       </section>
 
       <section>
-        <div className="panel-kicker">{worldId === 'earth' ? '04 · Code' : '04 · Life support'}</div>
+        <div className="panel-kicker">Code</div>
         {analysis ? (
           <>
-        <div className="kv">
-          <span>Occupancy</span>
-          <b>{analysis.occupancyGroup}</b>
-          <span>{worldId === 'earth' ? 'Occupant load' : 'Crew target'}</span>
-          <b>{analysis.occupantLoad}</b>
-          <span>{worldId === 'earth' ? 'Seats / m²' : 'Berths'}</span>
-          <b>
-            {analysis.seats} · {analysis.seatsPerM2.toFixed(2)}
-          </b>
-          {worldId === 'earth' && (
-            <>
-          <span>Travel</span>
-          <b>
-            {analysis.maxTravelM.toFixed(1)} / {analysis.travelLimitM} m
-          </b>
-          <span>Aisle</span>
-          <b>
-            {analysis.aisleMinM.toFixed(2)} / {analysis.aisleRequiredM} m
-          </b>
-          <span>Jurisdiction</span>
-          <div className="pills tight">
-            {CODES.map((c) => (
-              <button
-                key={c}
-                className={jurisdiction === c ? 'on' : ''}
-                onClick={() => usePlanner.getState().setJurisdiction(c)}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-            </>
-          )}
-        </div>
-        <ul className="checks">
-          {analysis.checks.map((c) => (
-            <li key={c.id} className={c.ok ? 'ok' : 'bad'}>
-              <span className="mark">{c.ok ? '✓' : '!'}</span>
-              <span>
-                {c.label}
-                <em>{c.detail}</em>
-              </span>
-            </li>
-          ))}
-        </ul>
+            <div className={`code-pulse ${failed ? 'bad' : 'ok'}`}>{failed ? `${failed} issues` : 'Passing'}</div>
+            <div className="kv">
+              <span>Occupancy</span>
+              <b>{analysis.occupancyGroup}</b>
+              <span>Load</span>
+              <b>{analysis.occupantLoad}</b>
+              <span>Seats / m²</span>
+              <b>
+                {analysis.seats} · {analysis.seatsPerM2.toFixed(2)}
+              </b>
+              {worldId === 'earth' && (
+                <>
+                  <span>Travel</span>
+                  <b>
+                    {analysis.maxTravelM.toFixed(1)} / {analysis.travelLimitM} m
+                  </b>
+                  <span>Aisle</span>
+                  <b>
+                    {analysis.aisleMinM.toFixed(2)} / {analysis.aisleRequiredM} m
+                  </b>
+                  <span>Code</span>
+                  <div className="pills tight">
+                    {CODES.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        className={jurisdiction === c ? 'on' : ''}
+                        onClick={() => usePlanner.getState().setJurisdiction(c)}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <ul className="checks">
+              {analysis.checks.map((c) => (
+                <li key={c.id} className={c.ok ? 'ok' : 'bad'}>
+                  <span className="mark">{c.ok ? '✓' : '!'}</span>
+                  <span>
+                    {c.label}
+                    <em>{c.detail}</em>
+                  </span>
+                </li>
+              ))}
+            </ul>
           </>
         ) : (
           <p className="empty">Code checks unavailable.</p>
-        )}
-      </section>
-
-      <section className="estimate">
-        <div className="panel-kicker">05 · Estimate</div>
-        <div className="pills">
-          {TIERS.map((t) => (
-            <button key={t} className={tier === t ? 'on' : ''} onClick={() => usePlanner.getState().setBudgetTier(t)}>
-              {t}
-            </button>
-          ))}
-        </div>
-        {analysis ? (
-          <>
-        <ul className="lines">
-          {analysis.lines.map((line) => (
-            <li key={line.group}>
-              <span>{line.label}</span>
-              <b>{formatMoney(line.amount)}</b>
-            </li>
-          ))}
-        </ul>
-        <div className="capex">
-          <span>Capex</span>
-          <strong>{formatMoney(analysis.total)}</strong>
-        </div>
-        <div className="cap-bar">
-          <div
-            className={analysis.budgetOk ? 'ok' : 'bad'}
-            style={{ width: `${Math.min(100, (analysis.total / analysis.cap) * 100)}%` }}
-          />
-        </div>
-        <div className="cap-label">Cap {formatMoney(analysis.cap)}</div>
-          </>
-        ) : (
-          <p className="empty">Estimate unavailable.</p>
         )}
       </section>
     </aside>

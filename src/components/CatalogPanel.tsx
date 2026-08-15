@@ -18,35 +18,34 @@ export function CatalogPanel() {
 
   return (
     <aside className="panel catalog">
-      <div className="panel-kicker">01 · Library</div>
+      <header className="panel-head">
+        <div>
+          <div className="panel-kicker">Library</div>
+          <h2>Place fixtures</h2>
+        </div>
+      </header>
       <div className="cats">
         {CATS.map((c) => (
-          <button
-            key={c.id}
-            className={c.id === active ? 'on' : ''}
-            onClick={() => setCategory(c.id)}
-          >
+          <button key={c.id} type="button" className={c.id === active ? 'on' : ''} onClick={() => setCategory(c.id)}>
             {c.label}
           </button>
         ))}
       </div>
-      <p className="hint">{pending ? 'Click the plan or 3D floor to place' : 'Select an item, then click to place'}</p>
+      <p className="hint">{pending ? 'Click the plan or the floor to drop it' : 'Pick a piece, then click to place'}</p>
       <ul className="catalog-list">
-        {items.map((item, i) => (
+        {items.map((item) => (
           <li key={item.id}>
             <button
               type="button"
               className={`catalog-row ${pending === item.id ? 'on' : ''}`}
               onClick={() => setPending(pending === item.id ? null : item.id)}
             >
-              <span className="idx">{String(i + 1).padStart(2, '0')}</span>
               <span className={`glyph ${item.plan}`} />
               <span className="meta">
                 <strong>{item.name}</strong>
-                <em>
-                  {item.sku} · ${item.price.toLocaleString()}
-                </em>
+                <em>{item.sku}</em>
               </span>
+              <span className="price">${item.price.toLocaleString()}</span>
             </button>
           </li>
         ))}

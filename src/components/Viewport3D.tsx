@@ -244,7 +244,7 @@ function PlacedMesh({
       {selected && (
         <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.28, 0.34, 32]} />
-          <meshBasicMaterial color="#b4532a" />
+          <meshBasicMaterial color="#ff4d00" />
         </mesh>
       )}
     </group>

@@ -1,10 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
+import { CanvasDock } from './components/CanvasDock'
 import { CatalogPanel } from './components/CatalogPanel'
 import { FloorPlan2D } from './components/FloorPlan2D'
 import { GLBoundary } from './components/GLBoundary'
 import { Header } from './components/Header'
 import { InspectorPanel } from './components/InspectorPanel'
-import { Toolbar } from './components/Toolbar'
+import { ToolRail } from './components/ToolRail'
 import { useIsMobile } from './media'
 import { usePlanner } from './store'
 
@@ -95,46 +96,50 @@ export default function App() {
   const showPlan = !mobile || tab === 'plan'
   const want3d = !mobile || tab === 'view3d'
   const show3d = allow3d && want3d
+  const showViews = !mobile || tab === 'plan' || tab === 'view3d'
 
   return (
     <div className={`app ${mobile ? 'mobile' : ''} world-${worldId}`}>
-      <Header compact={mobile} />
-      {mobile && (
-        <nav className="mobile-tabs">
-          <button className={tab === 'plan' ? 'on' : ''} onClick={() => setTab('plan')}>
-            Plan
-          </button>
-          <button className={tab === 'view3d' ? 'on' : ''} onClick={() => setTab('view3d')}>
-            3D
-          </button>
-          <button className={tab === 'catalog' ? 'on' : ''} onClick={() => setTab('catalog')}>
-            Catalog
-          </button>
-          <button className={tab === 'inspect' ? 'on' : ''} onClick={() => setTab('inspect')}>
-            Estimate
-          </button>
-        </nav>
-      )}
-      <div className="workspace">
-        {(!mobile || tab === 'catalog') && <CatalogPanel />}
-        {(!mobile || tab === 'plan' || tab === 'view3d') && (
-          <div className="views">
-            {showPlan && <FloorPlan2D />}
-            {want3d &&
-              (show3d ? (
-                <GLBoundary>
-                  <Suspense fallback={<div className="viewport3d boot-3d">Loading 3D…</div>}>
-                    <Viewport3D />
-                  </Suspense>
-                </GLBoundary>
-              ) : (
-                <div className="viewport3d boot-3d">Loading 3D…</div>
-              ))}
-          </div>
+      <ToolRail compact={mobile} />
+      <div className="shell">
+        <Header compact={mobile} />
+        {mobile && (
+          <nav className="mobile-tabs">
+            <button type="button" className={tab === 'plan' ? 'on' : ''} onClick={() => setTab('plan')}>
+              Plan
+            </button>
+            <button type="button" className={tab === 'view3d' ? 'on' : ''} onClick={() => setTab('view3d')}>
+              3D
+            </button>
+            <button type="button" className={tab === 'catalog' ? 'on' : ''} onClick={() => setTab('catalog')}>
+              Library
+            </button>
+            <button type="button" className={tab === 'inspect' ? 'on' : ''} onClick={() => setTab('inspect')}>
+              Spec
+            </button>
+          </nav>
         )}
-        {(!mobile || tab === 'inspect') && <InspectorPanel />}
+        <div className="workspace">
+          {(!mobile || tab === 'catalog') && <CatalogPanel />}
+          {showViews && (
+            <div className="views">
+              {showPlan && <FloorPlan2D />}
+              {want3d &&
+                (show3d ? (
+                  <GLBoundary>
+                    <Suspense fallback={<div className="viewport3d boot-3d">Loading 3D…</div>}>
+                      <Viewport3D />
+                    </Suspense>
+                  </GLBoundary>
+                ) : (
+                  <div className="viewport3d boot-3d">Loading 3D…</div>
+                ))}
+              {!mobile && <CanvasDock />}
+            </div>
+          )}
+          {(!mobile || tab === 'inspect') && <InspectorPanel />}
+        </div>
       </div>
-      <Toolbar compact={mobile} />
     </div>
   )
 }
