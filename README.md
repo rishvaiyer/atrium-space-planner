@@ -1,4 +1,4 @@
-# ATRIUM — 3D commercial space planner
+# ATRIUM: 3D commercial space planner
 
 ![ATRIUM mark](src/assets/hero.png)
 
