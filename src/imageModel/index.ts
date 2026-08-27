@@ -9,19 +9,22 @@
 import type { Group } from 'three'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 
-import { buildModel, disposeGroup, type BuildMode } from './build'
+import { buildModel, disposeGroup, type BuildMode, type Finish } from './build'
 import { classify, fitDimensions, type FurnitureKind, type Guess } from './classify'
 import { analyzeImage, loadImageSource, type ImageSource, type Silhouette } from './segment'
+import { readCap, type CapReading } from './topview'
 
 export { KIND_LABEL, KIND_SPEC, type FurnitureKind } from './classify'
-export type { BuildMode } from './build'
+export type { BuildMode, Finish } from './build'
 
 export const HONEST_NOTE =
-  'Runs entirely in your browser: the photo is cut out, measured, and rebuilt as geometry. It is a planning stand-in matched to the shape and colours of your photo, not a scan of the real object.'
+  'Runs entirely in your browser: the photo is cut out, measured, and rebuilt as geometry with a clean material mixed from its own colours. It is a planning stand-in matched to the shape and colours of your photo, not a scan of the real object.'
 
 export interface Analysis {
   sil: Silhouette
   guess: Guess
+  /** What the top of the photo turned out to be: a surface seen from above, or not. */
+  cap: CapReading
   kind: FurnitureKind
   /** Data URL of the cutout, for the preview strip. */
   preview: string
@@ -51,6 +54,7 @@ export async function analyzeSource(src: ImageSource, hintText?: string): Promis
   return {
     sil,
     guess,
+    cap: readCap(sil),
     kind: guess.kind,
     preview: sil.cutout.toDataURL('image/png'),
     name,
@@ -60,6 +64,8 @@ export async function analyzeSource(src: ImageSource, hintText?: string): Promis
 export interface GenerateOptions {
   kind: FurnitureKind
   mode: BuildMode
+  /** How surfaces are made: rebuilt clean from the photo's colours, or the photo itself. */
+  finish: Finish
   /** Metres. Overrides the fitted height and rescales width with it. */
   height?: number
   /** Metres. Overrides the guessed depth, which a single photo cannot show. */
@@ -73,6 +79,7 @@ export interface GeneratedModel {
   h: number
   kind: FurnitureKind
   mode: BuildMode
+  finish: Finish
 }
 
 /** Step two: build the mesh and serialise it to a GLB the app already knows how to place. */
@@ -85,9 +92,9 @@ export async function generateModel(analysis: Analysis, opts: GenerateOptions): 
 
   let group: Group | null = null
   try {
-    group = buildModel({ sil: analysis.sil, kind: opts.kind, w, d, h }, mode)
+    group = buildModel({ sil: analysis.sil, kind: opts.kind, w, d, h, finish: opts.finish }, mode)
     const glb = await exportGlb(group)
-    return { glb, w, d, h, kind: opts.kind, mode }
+    return { glb, w, d, h, kind: opts.kind, mode, finish: opts.finish }
   } finally {
     if (group) disposeGroup(group)
   }

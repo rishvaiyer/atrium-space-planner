@@ -33,6 +33,30 @@ export interface Silhouette {
   fill: number
   /** Left/right mirror agreement, 0..1. */
   symmetry: number
+  /**
+   * How much the centre of each row drifts from the overall centre, as a
+   * fraction of the half width. A solid of revolution has a straight axis, so
+   * this stays near zero even when shading makes the mirror test noisy.
+   */
+  axisWander: number
+  /**
+   * Width of the part of each band that is symmetric about the object's own
+   * axis, as a fraction of the bbox width. An apple's leaf, a kettle's spout,
+   * or a handle sticking out one side drops out of this, leaving the body that
+   * can actually be revolved.
+   */
+  axialProfile: Float32Array
+  /** Where the axial body starts and ends down the bbox, 0..1. */
+  axialTop: number
+  axialBottom: number
+  /**
+   * Axial width for every row of the bbox, not just the 64 bands. Revolved
+   * bodies and reconstructed table tops need the full resolution or they come
+   * out faceted.
+   */
+  rowAxial: Float32Array
+  /** Share of the subject that sits outside its own axial body. */
+  asymFrac: number
   /** True when a background was actually detected and removed. */
   segmented: boolean
   /** Cutout of the subject, cropped to bbox, transparent background. */
@@ -41,6 +65,27 @@ export interface Silhouette {
   palette: string[]
   /** Mean subject colour of a normalised vertical slice, v measured from the top. */
   bandColor: (v0: number, v1: number) => string
+  /** Colour and finish statistics for a normalised vertical slice. */
+  bandStats: (v0: number, v1: number) => BandStats
+}
+
+export interface BandStats {
+  /** Mean colour. */
+  hex: string
+  /** A brighter, more saturated version of the mean, for highlights and sheen. */
+  lightHex: string
+  /** A darker companion, for shadowed faces and grain. */
+  darkHex: string
+  /** Mean saturation, 0..1. */
+  sat: number
+  /** Mean lightness, 0..1. */
+  val: number
+  /** Spread of lightness, 0..1. High means strong shading or pattern. */
+  contrast: number
+  /** Share of pixels far brighter than the mean: specular highlights. */
+  highlight: number
+  /** Share of pixels in the warm brown/orange band: a wood tell. */
+  warm: number
 }
 
 export type ImageSource = File | Blob | string
@@ -238,6 +283,33 @@ function hex(r: number, g: number, b: number) {
   return `#${c(r)}${c(g)}${c(b)}`
 }
 
+/**
+ * Nudge a photographed colour toward how the eye remembers it.
+ *
+ * Averaging a photo flattens saturation, because shadow and highlight pull the
+ * mean toward grey. A small lift puts the character back without inventing a
+ * colour the photo did not have.
+ */
+export function vivid(color: string, amount = 0.18) {
+  const n = parseInt(color.slice(1), 16)
+  const r = (n >> 16) & 255
+  const g2 = (n >> 8) & 255
+  const b = n & 255
+  const mean = (r + g2 + b) / 3
+  const push = (c: number) => mean + (c - mean) * (1 + amount)
+  return hex(push(r), push(g2), push(b))
+}
+
+/** Lighten (amount > 0) or darken (amount < 0) a hex colour. */
+export function shade(color: string, amount: number) {
+  const n = parseInt(color.slice(1), 16)
+  const r = (n >> 16) & 255
+  const g = (n >> 8) & 255
+  const b = n & 255
+  const mix = (c: number) => (amount >= 0 ? c + (255 - c) * amount : c * (1 + amount))
+  return hex(mix(r), mix(g), mix(b))
+}
+
 function buildPalette(data: Uint8ClampedArray, mask: Uint8Array) {
   const bins = new Map<number, { n: number; r: number; g: number; b: number }>()
   for (let i = 0; i < mask.length; i++) {
@@ -310,13 +382,44 @@ export function analyzeImage(bitmap: ImageBitmap): Silhouette {
   const bw = Math.max(1, x1 - x0 + 1)
   const bh = Math.max(1, y1 - y0 + 1)
 
+  // Row extents first: the axis of revolution has to be known before the bands
+  // can be measured against it.
+  const rowL = new Int32Array(bh).fill(-1)
+  const rowR = new Int32Array(bh).fill(-1)
+  let widestRow = 0
+  for (let y = y0; y <= y1; y++) {
+    let left = -1
+    let right = -1
+    for (let x = x0; x <= x1; x++) {
+      if (!mask[y * mw + x]) continue
+      if (left < 0) left = x
+      right = x
+    }
+    rowL[y - y0] = left
+    rowR[y - y0] = right
+    if (left >= 0) widestRow = Math.max(widestRow, right - left + 1)
+  }
+  const rowAxial = new Float32Array(bh)
+  for (let i = 0; i < bh; i++) rowAxial[i] = 0
+
+  const centres: number[] = []
+  for (let i = 0; i < bh; i++) {
+    if (rowL[i] < 0) continue
+    if (rowR[i] - rowL[i] + 1 < widestRow * 0.5) continue
+    centres.push((rowL[i] + rowR[i]) / 2)
+  }
+  centres.sort((a, b) => a - b)
+  const axis = centres.length ? centres[centres.length >> 1] : x0 + bw / 2
+
   const widthProfile = new Float32Array(BANDS)
+  const axialProfile = new Float32Array(BANDS)
   const runs = new Uint8Array(BANDS)
   const gapFloor = Math.max(2, Math.round(bw * 0.035))
   for (let b = 0; b < BANDS; b++) {
     const ya = y0 + Math.floor((b / BANDS) * bh)
     const yb = Math.max(ya + 1, y0 + Math.floor(((b + 1) / BANDS) * bh))
     let widest = 0
+    let widestAxial = 0
     let bestRuns = 0
     for (let y = ya; y < yb && y <= y1; y++) {
       let filled = 0
@@ -340,9 +443,65 @@ export function analyzeImage(bitmap: ImageBitmap): Silhouette {
       }
       if (filled > widest) widest = filled
       if (spans > bestRuns) bestRuns = spans
+      const l = rowL[y - y0]
+      const r = rowR[y - y0]
+      if (l >= 0) {
+        const axial = 2 * Math.max(0, Math.min(axis - l, r - axis))
+        if (axial > widestAxial) widestAxial = axial
+      }
     }
     widthProfile[b] = widest / bw
+    axialProfile[b] = widestAxial / bw
     runs[b] = Math.min(255, bestRuns)
+  }
+
+  for (let i = 0; i < bh; i++) {
+    const l = rowL[i]
+    const r = rowR[i]
+    rowAxial[i] = l < 0 ? 0 : (2 * Math.max(0, Math.min(axis - l, r - axis))) / bw
+  }
+
+  // Where the axial body lives, and how much sits outside it.
+  let axialPeak = 0
+  for (let b = 0; b < BANDS; b++) axialPeak = Math.max(axialPeak, axialProfile[b])
+  let axialTop = 0
+  let axialBottom = 1
+  if (axialPeak > 0) {
+    let first = BANDS - 1
+    let lastB = 0
+    for (let b = 0; b < BANDS; b++) {
+      if (axialProfile[b] < axialPeak * 0.14) continue
+      first = Math.min(first, b)
+      lastB = Math.max(lastB, b)
+    }
+    axialTop = first / BANDS
+    axialBottom = (lastB + 1) / BANDS
+  }
+  let inside = 0
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (!mask[y * mw + x]) continue
+      const l = rowL[y - y0]
+      const r = rowR[y - y0]
+      const half = Math.max(0, Math.min(axis - l, r - axis))
+      if (Math.abs(x - axis) <= half) inside++
+    }
+  }
+
+  let wander = 0
+  let wanderRows = 0
+  const cx = axis
+  for (let y = y0; y <= y1; y++) {
+    let sum = 0
+    let n = 0
+    for (let x = x0; x <= x1; x++) {
+      if (!mask[y * mw + x]) continue
+      sum += x
+      n++
+    }
+    if (n < bw * 0.06) continue
+    wander += Math.abs(sum / n - cx)
+    wanderRows++
   }
 
   let mirrored = 0
@@ -376,6 +535,61 @@ export function analyzeImage(bitmap: ImageBitmap): Silhouette {
 
   const palette = buildPalette(data, mask)
 
+  const bandStats = (v0: number, v1: number): BandStats => {
+    const ya = y0 + Math.floor(Math.max(0, Math.min(1, v0)) * (bh - 1))
+    const yb = y0 + Math.ceil(Math.max(0, Math.min(1, v1)) * (bh - 1))
+    let r = 0
+    let g = 0
+    let b = 0
+    let n = 0
+    let satSum = 0
+    let valSum = 0
+    let warmN = 0
+    const vals: number[] = []
+    for (let y = ya; y <= yb && y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        if (!mask[y * mw + x]) continue
+        const a = (y * mw + x) * 4
+        const pr = data[a]
+        const pg = data[a + 1]
+        const pb = data[a + 2]
+        r += pr
+        g += pg
+        b += pb
+        const mx = Math.max(pr, pg, pb)
+        const mn = Math.min(pr, pg, pb)
+        const v = mx / 255
+        satSum += mx ? (mx - mn) / mx : 0
+        valSum += v
+        vals.push(v)
+        if (pr > pg && pg > pb && pr - pb > 24) warmN++
+        n++
+      }
+    }
+    if (!n) {
+      const fallback = palette[0] ?? '#9a938c'
+      return { hex: fallback, lightHex: fallback, darkHex: fallback, sat: 0.2, val: 0.5, contrast: 0.1, highlight: 0, warm: 0 }
+    }
+    const meanV = valSum / n
+    let variance = 0
+    let bright = 0
+    for (const v of vals) {
+      variance += (v - meanV) * (v - meanV)
+      if (v > meanV + 0.22) bright++
+    }
+    const hex0 = vivid(hex(r / n, g / n, b / n))
+    return {
+      hex: hex0,
+      lightHex: shade(hex0, 0.3),
+      darkHex: shade(hex0, -0.28),
+      sat: satSum / n,
+      val: meanV,
+      contrast: Math.min(1, Math.sqrt(variance / n) * 2.4),
+      highlight: bright / n,
+      warm: warmN / n,
+    }
+  }
+
   const bandColor = (v0: number, v1: number) => {
     const ya = y0 + Math.floor(Math.max(0, Math.min(1, v0)) * (bh - 1))
     const yb = y0 + Math.ceil(Math.max(0, Math.min(1, v1)) * (bh - 1))
@@ -406,13 +620,20 @@ export function analyzeImage(bitmap: ImageBitmap): Silhouette {
     mask,
     bbox,
     widthProfile,
+    axialProfile,
+    axialTop,
+    axialBottom,
+    rowAxial,
+    asymFrac: count ? 1 - inside / count : 0,
     runs,
     fill: count / (bw * bh),
     symmetry: mirrorTotal ? mirrored / mirrorTotal : 0,
+    axisWander: wanderRows ? wander / wanderRows / (bw / 2) : 1,
     segmented,
     cutout,
     palette,
     bandColor,
+    bandStats,
   }
 }
 

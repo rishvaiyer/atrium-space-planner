@@ -9,6 +9,7 @@ import {
   nameFromSource,
   type Analysis,
   type BuildMode,
+  type Finish,
   type FurnitureKind,
 } from '../imageModel'
 import { fitDimensions } from '../imageModel/classify'
@@ -16,6 +17,8 @@ import { tip } from './tipAttrs'
 
 const KINDS: FurnitureKind[] = [
   'chair',
+  'round',
+  'poker',
   'stool',
   'sofa',
   'table',
@@ -40,6 +43,7 @@ export function PhotoModelPanel({ onCreated }: { onCreated: (entry: GlbEntry) =>
   const [name, setName] = useState('')
   const [kind, setKind] = useState<FurnitureKind>('generic')
   const [mode, setMode] = useState<BuildMode>('solid')
+  const [finish, setFinish] = useState<Finish>('clean')
   const [heightCm, setHeightCm] = useState('')
   const [depthCm, setDepthCm] = useState('')
   const [busy, setBusy] = useState('')
@@ -61,6 +65,7 @@ export function PhotoModelPanel({ onCreated }: { onCreated: (entry: GlbEntry) =>
       setAnalysis(next)
       setKind(next.kind)
       setMode(next.kind === 'generic' ? 'cutout' : 'solid')
+      setFinish(next.kind === 'rug' ? 'photo' : 'clean')
       setName(nameFromSource(src, 'Photo model'))
       setHeightCm('')
       setDepthCm('')
@@ -112,6 +117,7 @@ export function PhotoModelPanel({ onCreated }: { onCreated: (entry: GlbEntry) =>
       const model = await generateModel(analysis, {
         kind,
         mode,
+        finish,
         height: Number(heightCm) > 0 ? Number(heightCm) / 100 : undefined,
         depth: Number(depthCm) > 0 ? Number(depthCm) / 100 : undefined,
       })
@@ -218,6 +224,12 @@ export function PhotoModelPanel({ onCreated }: { onCreated: (entry: GlbEntry) =>
             {!analysis.sil.segmented && ' No clear background was found, so the whole frame was used.'} Change anything
             below before adding it.
           </p>
+          {analysis.cap.isElevated && (
+            <p className="hint">
+              The photo looks down on the top, so the footprint is taken from the top outline and the height is the
+              standard for this type. Set the height below if you know it.
+            </p>
+          )}
 
           <label className="field">
             Name
@@ -238,8 +250,16 @@ export function PhotoModelPanel({ onCreated }: { onCreated: (entry: GlbEntry) =>
           <label className="field">
             Build
             <select value={mode} onChange={(e) => setMode(e.target.value as BuildMode)}>
-              <option value="solid">Solid furniture (real volume, all angles)</option>
-              <option value="cutout">Photo cutout (extruded outline, keeps detail)</option>
+              <option value="solid">Solid object (real volume, all angles)</option>
+              <option value="cutout">Photo cutout (flat extruded outline)</option>
+            </select>
+          </label>
+
+          <label className="field">
+            Surface
+            <select value={finish} onChange={(e) => setFinish(e.target.value as Finish)}>
+              <option value="clean">Clean material (rebuilt from the photo's colours)</option>
+              <option value="photo">Photo texture (keeps printed detail, lower resolution)</option>
             </select>
           </label>
 
@@ -265,7 +285,7 @@ export function PhotoModelPanel({ onCreated }: { onCreated: (entry: GlbEntry) =>
           </div>
           <p className="hint">
             Footprint {auto ? `${cm(auto.w)} × ${cm(Number(depthCm) > 0 ? Number(depthCm) / 100 : auto.d)} cm` : '-'} ·
-            height {auto ? `${cm(auto.h)} cm` : '-'}. Width follows the photo. A single photo cannot show depth, so that
+            height {auto ? `${cm(auto.h)} cm` : '-'}. A single photo cannot measure depth through perspective, so that
             one is a typed default you can correct.
           </p>
 
