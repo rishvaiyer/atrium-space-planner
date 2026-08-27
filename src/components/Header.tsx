@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { openBoard } from '../board'
 import { catalogItem } from '../catalog'
+import { clearAllLocalData } from '../glbLibrary'
 import { analyzeLayout } from '../compliance'
 import { toPlaceExport } from '../placeExport'
 import { downloadJson, downloadText } from '../project'
@@ -28,6 +29,17 @@ export function Header({
   const showLibrary = usePlanner((s) => s.showLibrary)
   const showSpec = usePlanner((s) => s.showSpec)
   const focusMode = usePlanner((s) => s.focusMode)
+
+  /**
+   * Back to zero: the autosaved project, every imported and generated model,
+   * and the stored Polyfork token. Reloading afterwards is deliberate, so no
+   * revoked blob URL or registered catalog entry survives in memory.
+   */
+  const resetAll = () => {
+    if (!confirm('Clear the saved project and every imported or generated model from this browser, and start empty? This cannot be undone.')) return
+    clearAllLocalData()
+    location.reload()
+  }
 
   const exportJson = () => {
     void usePlanner.getState().exportProject().then((project) => {
@@ -109,6 +121,7 @@ export function Header({
               { label: 'Present', run: () => usePlanner.getState().setFlag('focusMode', !focusMode) },
               { label: 'Redo', run: () => usePlanner.getState().redo() },
               { label: 'Help', run: onHelp },
+              { label: 'Reset all data', run: resetAll },
             ]}
           />
         ) : (
@@ -130,6 +143,13 @@ export function Header({
             </button>
             <button type="button" {...tip('Export sit-ready place JSON for other apps')} onClick={exportPlace}>
               Export place
+            </button>
+            <button
+              type="button"
+              {...tip('Clear the saved project and every imported or generated model, and start empty')}
+              onClick={resetAll}
+            >
+              Reset
             </button>
             <span className="sep" />
             <button

@@ -236,6 +236,36 @@ export async function addPhotoGlb(model: {
   return entry
 }
 
+/** Forget every imported and generated model, and delete the stored blobs. */
+export function clearGlbLibrary() {
+  const entries = listGlb()
+  for (const e of entries) {
+    unregisterGlbItem(e.id)
+    if (e.source !== 'polyfork') void idbDel(e.id).catch(() => undefined)
+    if (e.glbUrl.startsWith('blob:')) URL.revokeObjectURL(e.glbUrl)
+  }
+  localStorage.removeItem(LIST_KEY)
+  return entries.length
+}
+
+/**
+ * Wipe everything this app has stored in the browser: the model library and
+ * its blobs, the autosaved project, and the Polyfork token. Used by the reset
+ * in the header, which reloads afterwards so nothing stale is left in memory.
+ */
+export function clearAllLocalData() {
+  const removed = clearGlbLibrary()
+  for (const key of ['atrium-project-v1', 'atrium-polyfork-key', 'atrium-place']) {
+    localStorage.removeItem(key)
+  }
+  try {
+    indexedDB.deleteDatabase(DB)
+  } catch {
+    /* the blobs are already unlinked from the index */
+  }
+  return removed
+}
+
 export function removeGlb(id: string) {
   unregisterGlbItem(id)
   const entry = listGlb().find((e) => e.id === id)

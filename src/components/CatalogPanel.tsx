@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
 import { CATALOG, worldUse } from '../catalog'
-import { addPolyforkAsset, hydrateGlbLibrary, importGlbFiles, listGlb, removeGlb, type GlbEntry } from '../glbLibrary'
+import {
+  addPolyforkAsset,
+  clearGlbLibrary,
+  hydrateGlbLibrary,
+  importGlbFiles,
+  listGlb,
+  removeGlb,
+  type GlbEntry,
+} from '../glbLibrary'
 import { glbUrlFor, polyforkKey, searchPolyfork, setPolyforkKey, type PolyforkAsset } from '../polyfork'
 import { PhotoModelPanel } from './PhotoModelPanel'
 import { usePlanner } from '../store'
@@ -188,6 +196,23 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
               />
             </label>
           </div>
+          {library.length > 0 && (
+            <div className="file-row">
+              <button
+                type="button"
+                className="file-btn danger"
+                {...tip('Delete every imported and generated model from this browser')}
+                onClick={() => {
+                  if (!confirm(`Remove all ${library.length} model${library.length === 1 ? '' : 's'} from this browser? Models already placed in the plan stay put until you delete them.`)) return
+                  clearGlbLibrary()
+                  setLibrary([])
+                  setPending(null)
+                }}
+              >
+                Remove all {library.length}
+              </button>
+            </div>
+          )}
           {library.length > 0 && (
             <ul className="catalog-list">
               {library.map((e) => (

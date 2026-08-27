@@ -651,6 +651,7 @@ input[type='range'] { width: 100%; accent-color: var(--accent); }
 }
 .file-btn.wide { width: 100%; margin: 8px 0 12px; }
 .file-btn:disabled { opacity: 0.55; }
+.file-btn.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
 .glyph-img {
   width: 36px;
   height: 36px;
