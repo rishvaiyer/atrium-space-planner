@@ -7,16 +7,21 @@ const DB = 'atrium-glb'
 const STORE = 'files'
 const LIST_KEY = 'atrium-glb-index'
 
+export type GlbSource = 'file' | 'polyfork' | 'photo'
+
 export interface GlbEntry {
   id: string
   name: string
-  source: 'file' | 'polyfork'
+  source: GlbSource
   glbUrl: string
   w: number
   d: number
   h: number
   thumb?: string
   polyforkId?: string
+  /** Set on photo-generated models: what the classifier decided and how it was built. */
+  photoKind?: string
+  photoMode?: string
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -41,11 +46,23 @@ function saveList(entries: GlbEntry[]) {
   for (const e of entries) registerFromEntry(e)
 }
 
+/** Photo models of seats should behave like seats in the avatar and cost passes. */
+const PHOTO_SEATS: Record<string, Partial<CatalogItem>> = {
+  chair: { isSeat: true, seats: 1, sitHeight: 0.45, use: 'sit', costGroup: 'seating' },
+  stool: { isSeat: true, seats: 1, sitHeight: 0.7, use: 'sit', costGroup: 'seating' },
+  sofa: { isSeat: true, seats: 3, sitHeight: 0.42, use: 'sit', costGroup: 'seating' },
+  bed: { isSeat: false, seats: 0, sitHeight: 0.5, use: 'sleep' },
+  table: { costGroup: 'tables' },
+  desk: { costGroup: 'tables' },
+  lamp: { costGroup: 'lighting' },
+}
+
 export function registerFromEntry(e: GlbEntry) {
+  const seat = e.photoKind ? PHOTO_SEATS[e.photoKind] : undefined
   const item: CatalogItem & { glbUrl: string } = {
     id: e.id,
     name: e.name,
-    sku: 'GLB',
+    sku: e.source === 'photo' ? 'PHOTO' : 'GLB',
     category: 'home',
     costGroup: 'other',
     price: 0,
@@ -56,9 +73,10 @@ export function registerFromEntry(e: GlbEntry) {
     blocksCirculation: true,
     isSeat: false,
     seats: 0,
-    tags: ['glb', e.source],
+    tags: e.photoKind ? ['glb', e.source, e.photoKind] : ['glb', e.source],
     glbUrl: e.glbUrl,
   }
+  if (seat) Object.assign(item, seat)
   registerGlbItem(item)
 }
 
@@ -66,7 +84,7 @@ export async function hydrateGlbLibrary() {
   const entries = listGlb()
   const next: GlbEntry[] = []
   for (const e of entries) {
-    if (e.source === 'file') {
+    if (e.source !== 'polyfork') {
       try {
         const buf = await idbGet(e.id)
         if (buf) {
@@ -100,6 +118,17 @@ function idbPut(id: string, buf: ArrayBuffer) {
     (db) =>
       new Promise<void>((resolve, reject) => {
         const req = db.transaction(STORE, 'readwrite').objectStore(STORE).put(buf, id)
+        req.onsuccess = () => resolve()
+        req.onerror = () => reject(req.error)
+      }),
+  )
+}
+
+function idbDel(id: string) {
+  return openDb().then(
+    (db) =>
+      new Promise<void>((resolve, reject) => {
+        const req = db.transaction(STORE, 'readwrite').objectStore(STORE).delete(id)
         req.onsuccess = () => resolve()
         req.onerror = () => reject(req.error)
       }),
@@ -172,8 +201,45 @@ export function addPolyforkAsset(asset: {
   return listGlb()
 }
 
+/** Store a GLB produced in the browser (Photo to 3D) and expose it as a catalog item. */
+export async function addPhotoGlb(model: {
+  name: string
+  glb: ArrayBuffer
+  w: number
+  d: number
+  h: number
+  kind: string
+  mode: string
+}) {
+  const id = `glb:${uid()}`
+  await idbPut(id, model.glb)
+  const url = URL.createObjectURL(new Blob([model.glb], { type: 'model/gltf-binary' }))
+  let thumb: string | undefined
+  try {
+    thumb = (await measureGlb(url)).thumb
+  } catch {
+    /* the list falls back to a generic glyph */
+  }
+  const entry: GlbEntry = {
+    id,
+    name: model.name.trim() || 'Photo model',
+    source: 'photo',
+    glbUrl: url,
+    w: model.w,
+    d: model.d,
+    h: model.h,
+    thumb,
+    photoKind: model.kind,
+    photoMode: model.mode,
+  }
+  saveList([...listGlb(), entry])
+  return entry
+}
+
 export function removeGlb(id: string) {
   unregisterGlbItem(id)
+  const entry = listGlb().find((e) => e.id === id)
+  if (entry && entry.source !== 'polyfork') void idbDel(id).catch(() => undefined)
   saveList(listGlb().filter((e) => e.id !== id))
 }
 
@@ -183,7 +249,7 @@ const MAX_TOTAL = 12_000_000
 export interface PortableGlb {
   id: string
   name: string
-  source: 'file' | 'polyfork'
+  source: GlbSource
   w: number
   d: number
   h: number
@@ -192,6 +258,8 @@ export interface PortableGlb {
   url?: string
   data?: string
   omitted?: boolean
+  photoKind?: string
+  photoMode?: string
 }
 
 function bufToB64(buf: ArrayBuffer) {
@@ -226,6 +294,8 @@ export async function exportPortableGlbs(usedIds: string[]): Promise<PortableGlb
       h: e.h,
       thumb: e.thumb,
       polyforkId: e.polyforkId,
+      photoKind: e.photoKind,
+      photoMode: e.photoMode,
     }
     if (e.source === 'polyfork') {
       rec.url = e.glbUrl.startsWith('blob:')
@@ -264,6 +334,8 @@ export async function importPortableGlbs(assets: PortableGlb[]) {
         h: a.h,
         thumb: a.thumb,
         polyforkId: a.polyforkId,
+        photoKind: a.photoKind,
+        photoMode: a.photoMode,
       }
       const i = entries.findIndex((e) => e.id === a.id)
       if (i >= 0) entries[i] = next
@@ -281,6 +353,8 @@ export async function importPortableGlbs(assets: PortableGlb[]) {
         h: a.h,
         thumb: a.thumb,
         polyforkId: a.polyforkId,
+        photoKind: a.photoKind,
+        photoMode: a.photoMode,
       }
       const i = entries.findIndex((e) => e.id === a.id)
       if (i >= 0) entries[i] = next

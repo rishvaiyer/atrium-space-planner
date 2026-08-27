@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CATALOG, worldUse } from '../catalog'
 import { addPolyforkAsset, hydrateGlbLibrary, importGlbFiles, listGlb, removeGlb, type GlbEntry } from '../glbLibrary'
 import { glbUrlFor, polyforkKey, searchPolyfork, setPolyforkKey, type PolyforkAsset } from '../polyfork'
+import { PhotoModelPanel } from './PhotoModelPanel'
 import { usePlanner } from '../store'
 import type { Category } from '../types'
 import { tip } from './tipAttrs'
@@ -21,7 +22,7 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
   const setCategory = usePlanner((s) => s.setCategory)
   const setPending = usePlanner((s) => s.setPending)
   const [q, setQ] = useState('')
-  const [tab, setTab] = useState<'stock' | 'models'>('stock')
+  const [tab, setTab] = useState<'stock' | 'models' | 'photo'>('stock')
   const [library, setLibrary] = useState<GlbEntry[]>([])
   const [pfQ, setPfQ] = useState('')
   const [pfKey, setPfKey] = useState(() => polyforkKey())
@@ -100,8 +101,19 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
         <button type="button" className={tab === 'models' ? 'on' : ''} {...tip('Import GLB files or search Polyfork')} onClick={() => setTab('models')}>
           Models
         </button>
+        <button type="button" className={tab === 'photo' ? 'on' : ''} {...tip('Turn a photo of a piece of furniture into a 3D model')} onClick={() => setTab('photo')}>
+          Photo → 3D
+        </button>
       </div>
-      {tab === 'stock' ? (
+      {tab === 'photo' ? (
+        <PhotoModelPanel
+          onCreated={(entry) => {
+            setLibrary(listGlb())
+            setTab('models')
+            pick(entry.id)
+          }}
+        />
+      ) : tab === 'stock' ? (
         <>
           <div className="cats">
             {CATS.map((c) => (
@@ -189,7 +201,7 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
                     {e.thumb ? <img className="glyph-img" src={e.thumb} alt="" /> : <span className="glyph rect" />}
                     <span className="meta">
                       <strong>{e.name}</strong>
-                      <em>{e.source === 'polyfork' ? 'Polyfork' : 'Local GLB'}</em>
+                      <em>{e.source === 'polyfork' ? 'Polyfork' : e.source === 'photo' ? `From photo · ${e.photoKind ?? 'model'}` : 'Local GLB'}</em>
                     </span>
                   </button>
                   <button
