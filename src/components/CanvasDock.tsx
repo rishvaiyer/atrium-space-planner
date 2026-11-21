@@ -59,7 +59,7 @@ export function CanvasDock() {
       <button type="button" {...tip('Fit the plan to the room', 'F')} onClick={() => usePlanner.getState().fitView()}>
         Fit plan
       </button>
-      <div className="dock-layers">
+      <details className="layer-popover"><summary>Layers</summary><div className="dock-layers">
         {LAYERS.map(([k, label, hint]) => (
           <button
             key={k}
@@ -71,7 +71,7 @@ export function CanvasDock() {
             {label}
           </button>
         ))}
-      </div>
+      </div></details>
     </div>
   )
 }

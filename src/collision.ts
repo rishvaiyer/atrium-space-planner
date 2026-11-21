@@ -1,6 +1,20 @@
 import { itemAabb, itemDims } from './geometry'
 import { projectOnWall } from './walls'
+import { catalogItem } from './catalog'
 import type { PlacedItem, Room } from './types'
+
+const SURFACES = new Set(['rect', 'round', 'desk', 'bar'])
+/** Pairs that legitimately share floor area: a seat tucked under a table, a pendant overhead, a rug underfoot. */
+export function canShare(a: PlacedItem, b: PlacedItem) {
+  const A = catalogItem(a.catalogId)
+  const B = catalogItem(b.catalogId)
+  if (A.plan === 'pendant' || B.plan === 'pendant') return true
+  const rug = (x: typeof A) => (x.tags ?? []).includes('rug') || x.h <= 0.03
+  if (rug(A) || rug(B)) return true
+  if (A.isSeat && !B.isSeat && SURFACES.has(B.plan)) return true
+  if (B.isSeat && !A.isSeat && SURFACES.has(A.plan)) return true
+  return false
+}
 
 export function boxesOverlap(
   a: { minX: number; maxX: number; minZ: number; maxZ: number },
@@ -31,6 +45,7 @@ export function itemHitsItems(item: PlacedItem, others: PlacedItem[], skipId?: s
   const box = itemAabb(item)
   for (const other of others) {
     if (other.id === item.id || other.id === skipId) continue
+    if (canShare(item, other)) continue
     if (boxesOverlap(box, itemAabb(other))) return true
   }
   return false
@@ -50,6 +65,7 @@ export function collidingItemIds(items: PlacedItem[], room: Room) {
   for (let i = 0; i < boxes.length; i++) {
     for (let j = i + 1; j < boxes.length; j++) {
       if (!boxesOverlap(boxes[i].box, boxes[j].box)) continue
+      if (canShare(boxes[i].it, boxes[j].it)) continue
       ids.add(boxes[i].it.id)
       ids.add(boxes[j].it.id)
     }

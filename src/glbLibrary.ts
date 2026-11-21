@@ -255,7 +255,7 @@ export function clearGlbLibrary() {
  */
 export function clearAllLocalData() {
   const removed = clearGlbLibrary()
-  for (const key of ['atrium-project-v1', 'atrium-polyfork-key', 'atrium-place']) {
+  for (const key of ['atrium-project-v1', 'atrium-layout-options-v1', 'atrium-polyfork-key', 'atrium-place']) {
     localStorage.removeItem(key)
   }
   try {

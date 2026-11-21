@@ -10,7 +10,7 @@ export interface PolyforkAsset {
 const KEY = 'atrium-polyfork-key'
 
 export function polyforkKey() {
-  return localStorage.getItem(KEY) || ''
+  try { return localStorage.getItem(KEY) || '' } catch { return '' }
 }
 
 export function setPolyforkKey(key: string) {

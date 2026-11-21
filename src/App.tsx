@@ -1,353 +1,313 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { CanvasDock } from './components/CanvasDock'
-import { CatalogPanel } from './components/CatalogPanel'
-import { CommandPalette } from './components/CommandPalette'
-import { FloorPlan2D } from './components/FloorPlan2D'
-import { GLBoundary } from './components/GLBoundary'
-import { Header } from './components/Header'
-import { TooltipHost } from './components/Tip'
-import { tip } from './components/tipAttrs'
-import { HelpModal } from './components/HelpModal'
-import { InspectorPanel } from './components/InspectorPanel'
-import { OverlayTools } from './components/OverlayTools'
-import { TemplateGallery } from './components/TemplateGallery'
-import { hydrateGlbLibrary } from './glbLibrary'
-import { useIsMobile } from './media'
-import { PROJECT_KEY, readProjectFile } from './project'
-import { readOpenFile } from './design'
-import { usePlanner } from './store'
+import { lazy, Suspense, useRef, useState } from 'react'
+import cafeImage from './assets/atrium-cafe.webp'
+import { PlanPreview } from './components/PlanPreview'
+import { TEMPLATES } from './templates'
+import { PROJECT_KEY, readProjectFile, downloadJson, type ProjectFile } from './project'
+import {
+  archiveInvalidStorage,
+  preserveCurrentProject,
+  readLayoutOptions,
+  type RecoveryFiles,
+  type LayoutOption,
+} from './layoutOptions'
+import { ThemeToggle } from './components/ThemeToggle'
 
-const Viewport3D = lazy(async () => {
-  const mod = await import('./components/Viewport3D')
-  return { default: mod.Viewport3D }
-})
+const Planner = lazy(() => import('./Planner'))
 
-type MobileTab = 'plan' | 'view3d' | 'catalog' | 'inspect'
-
-export default function App() {
-  const mobile = useIsMobile()
-  const showLibrary = usePlanner((s) => s.showLibrary)
-  const showSpec = usePlanner((s) => s.showSpec)
-  const focusMode = usePlanner((s) => s.focusMode)
-  const [tab, setTab] = useState<MobileTab>('plan')
-  const [allow3d, setAllow3d] = useState(false)
-  const [palette, setPalette] = useState(false)
-  const [templates, setTemplates] = useState(false)
-  const [help, setHelp] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    void hydrateGlbLibrary()
-  }, [])
-
-  useEffect(() => {
+function readHomeState(): {
+  latest: ProjectFile | null
+  options: LayoutOption[]
+  notice: string
+  recovery: RecoveryFiles | null
+} {
+  try {
+    const raw = localStorage.getItem(PROJECT_KEY)
+    const latest = raw ? readProjectFile(raw) : null
+    const recovery: RecoveryFiles = {}
+    let options: LayoutOption[] = []
+    if (raw && !latest) recovery.project = raw
     try {
-      const raw = localStorage.getItem(PROJECT_KEY)
-      if (raw) {
-        const file = readProjectFile(raw)
-        if (file) usePlanner.getState().applyProject(file)
-      } else {
-        setTemplates(true)
-      }
+      options = readLayoutOptions()
     } catch {
-      /* ignore */
+      recovery.options = localStorage.getItem('atrium-layout-options-v1') ?? ''
     }
-  }, [])
-
-  useEffect(() => {
-    let t = 0
-    const unsub = usePlanner.subscribe(() => {
-      window.clearTimeout(t)
-      t = window.setTimeout(() => {
-        try {
-          localStorage.setItem(PROJECT_KEY, JSON.stringify(usePlanner.getState().toProject()))
-        } catch {
-          /* ignore */
-        }
-      }, 400)
-    })
-    return () => {
-      unsub()
-      window.clearTimeout(t)
+    const needsRecovery = Object.keys(recovery).length > 0
+    return {
+      latest,
+      options,
+      notice: needsRecovery
+        ? 'Some saved data could not be reopened. Keep a recovery copy, then back it up to start again.'
+        : '',
+      recovery: needsRecovery ? recovery : null,
     }
-  }, [])
-
-  useEffect(() => {
-    let inner = 0
-    const outer = window.requestAnimationFrame(() => {
-      inner = window.requestAnimationFrame(() => setAllow3d(true))
-    })
-    return () => {
-      window.cancelAnimationFrame(outer)
-      window.cancelAnimationFrame(inner)
+  } catch {
+    return {
+      latest: null,
+      options: [],
+      notice: 'Browser storage could not be read. You can still open a project file.',
+      recovery: null,
     }
-  }, [])
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const state = usePlanner.getState()
-      const meta = e.metaKey || e.ctrlKey
-      const el = e.target as HTMLElement
-      const typing = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
-
-      if (meta && e.key.toLowerCase() === 'k') {
-        e.preventDefault()
-        setPalette((v) => !v)
-        return
-      }
-      if (meta && e.key.toLowerCase() === 'o') {
-        e.preventDefault()
-        fileRef.current?.click()
-        return
-      }
-      if (meta && e.key.toLowerCase() === 'n') {
-        e.preventDefault()
-        setTemplates(true)
-        return
-      }
-      if (meta && e.key.toLowerCase() === 's') {
-        e.preventDefault()
-        void usePlanner.getState().exportProject().then((project) => {
-          const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' })
-          const a = document.createElement('a')
-          a.href = URL.createObjectURL(blob)
-          a.download = `${project.name.replace(/\s+/g, '-').toLowerCase()}.atrium.json`
-          a.click()
-          URL.revokeObjectURL(a.href)
-        })
-        return
-      }
-      if (meta && e.key.toLowerCase() === 'z') {
-        e.preventDefault()
-        if (e.shiftKey) state.redo()
-        else state.undo()
-        return
-      }
-      if (meta && e.key.toLowerCase() === 'd') {
-        e.preventDefault()
-        state.duplicateSelected()
-        return
-      }
-      if (e.key === 'Escape') {
-        if (palette) {
-          setPalette(false)
-          return
-        }
-        if (help) {
-          setHelp(false)
-          return
-        }
-        if (templates) {
-          setTemplates(false)
-          return
-        }
-        if (state.focusMode) {
-          state.setFlag('focusMode', false)
-          return
-        }
-        state.select(null)
-        state.setPending(null)
-        state.clearMeasure()
-        state.setWallStart(null)
-        return
-      }
-      if (typing) return
-      if (state.cameraMode === 'eye' && !meta && ['w', 'a', 's', 'd', 'W', 'A', 'S', 'D'].includes(e.key)) {
-        return
-      }
-      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
-        e.preventDefault()
-        setHelp((v) => !v)
-        return
-      }
-      if (e.key === '.' || e.key === '\\') {
-        state.setFlag('focusMode', !state.focusMode)
-        return
-      }
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault()
-        state.nudgeSelected(-1, 0, e.altKey)
-        return
-      }
-      if (e.key === 'ArrowRight') {
-        e.preventDefault()
-        state.nudgeSelected(1, 0, e.altKey)
-        return
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        state.nudgeSelected(0, -1, e.altKey)
-        return
-      }
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        state.nudgeSelected(0, 1, e.altKey)
-        return
-      }
-      if (e.key === 'w' || e.key === 'W') {
-        state.setTool('wall')
-        return
-      }
-      if ((e.key === 'd' || e.key === 'D') && !meta) {
-        state.setTool('door')
-        return
-      }
-      if (e.key === 'g' || e.key === 'G') {
-        state.setTool('window')
-        return
-      }
-      if (e.key === 'v' || e.key === 'V') {
-        state.setTool('select')
-        return
-      }
-      if (e.key === 'h' || e.key === 'H') {
-        state.setTool('pan')
-        return
-      }
-      if (e.key === 'm' || e.key === 'M') {
-        state.setTool('measure')
-        return
-      }
-      if (e.key === 'c' || e.key === 'C') {
-        state.setTool('paint')
-        return
-      }
-      if (e.key === 'n' || e.key === 'N') {
-        state.setTool('note')
-        return
-      }
-      if (e.key === 't' || e.key === 'T') {
-        state.setTool('stamp')
-        return
-      }
-      if (e.key === 'r' || e.key === 'R') {
-        state.rotateSelected(Math.PI / 2)
-        return
-      }
-      if (e.key === 'f' || e.key === 'F') {
-        state.fitView()
-        return
-      }
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault()
-        state.deleteSelected()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [palette, templates, help])
-
-  const showPlan = !mobile || tab === 'plan'
-  const want3d = !mobile || tab === 'view3d'
-  const show3d = allow3d && want3d
-  const showViews = !mobile || tab === 'plan' || tab === 'view3d'
-  const library = !focusMode && (mobile ? tab === 'catalog' : showLibrary)
-  const spec = !focusMode && (mobile ? tab === 'inspect' : showSpec)
-
-  return (
-    <div className={`app ${mobile ? 'mobile' : ''} ${focusMode ? 'present' : ''}`}>
-      <Header
-        compact={mobile}
-        onTemplates={() => setTemplates(true)}
-        onPalette={() => setPalette(true)}
-        onImport={() => fileRef.current?.click()}
-        onHelp={() => setHelp(true)}
-      />
-      <input
-        ref={fileRef}
-        type="file"
-        accept="application/json,.json"
-        hidden
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (!file) return
-          file.text().then((raw) => {
-            const project = readProjectFile(raw) ?? readOpenFile(raw)
-            if (project) usePlanner.getState().applyProject(project)
-          })
-          e.target.value = ''
-        }}
-      />
-      <div className={`workspace ${library ? 'has-lib' : ''} ${spec ? 'has-spec' : ''}`}>
-        {library && <CatalogPanel onPick={() => mobile && setTab('plan')} />}
-        {showViews && (
-          <div className="views">
-            {showPlan && <FloorPlan2D />}
-            {want3d &&
-              (show3d ? (
-                <GLBoundary>
-                  <Suspense fallback={<div className="viewport3d boot-3d">Loading 3D…</div>}>
-                    <Viewport3D />
-                  </Suspense>
-                </GLBoundary>
-              ) : (
-                <div className="viewport3d boot-3d">Loading 3D…</div>
-              ))}
-            <OverlayTools compact={mobile} />
-            {(!mobile || tab === 'plan') && !focusMode && <CanvasDock />}
-            {(!mobile || tab === 'view3d') && <ViewCameras />}
-          </div>
-        )}
-        {spec && <InspectorPanel />}
-      </div>
-      {mobile && !focusMode && (
-        <nav className="mobile-tabs">
-          <button type="button" className={tab === 'plan' ? 'on' : ''} {...tip('2D floor plan')} onClick={() => setTab('plan')}>
-            Plan
-          </button>
-          <button type="button" className={tab === 'view3d' ? 'on' : ''} {...tip('3D view of the room')} onClick={() => setTab('view3d')}>
-            3D
-          </button>
-          <button type="button" className={tab === 'catalog' ? 'on' : ''} {...tip('Fixture library')} onClick={() => setTab('catalog')}>
-            Library
-          </button>
-          <button type="button" className={tab === 'inspect' ? 'on' : ''} {...tip('Specs, cost, and textures')} onClick={() => setTab('inspect')}>
-            Spec
-          </button>
-        </nav>
-      )}
-      {palette && (
-        <CommandPalette
-          onClose={() => setPalette(false)}
-          onOpenTemplates={() => setTemplates(true)}
-          onHelp={() => setHelp(true)}
-        />
-      )}
-      {templates && <TemplateGallery onClose={() => setTemplates(false)} />}
-      {help && <HelpModal onClose={() => setHelp(false)} />}
-      <TooltipHost />
-    </div>
-  )
+  }
 }
 
-function ViewCameras() {
-  const mode = usePlanner((s) => s.cameraMode)
-  return (
-    <div className="cam-switch">
-      {(['orbit', 'eye', 'top'] as const).map((id) => (
-        <button
-          key={id}
-          type="button"
-          className={mode === id ? 'on' : ''}
-          {...tip(
-            id === 'orbit'
-              ? 'Orbit camera — drag to look around'
-              : id === 'eye'
-                ? 'Eye-level walkthrough. WASD to walk, drag to look'
-                : 'Top-down camera',
-          )}
-          onClick={() => usePlanner.getState().setCameraMode(id)}
-        >
-          {id === 'orbit' ? 'Orbit' : id === 'eye' ? 'Eye' : 'Top'}
-        </button>
-      ))}
-      <button
-        type="button"
-        {...tip('Download a PNG of this 3D view')}
-        onClick={() => usePlanner.getState().requestShot()}
+export default function App() {
+  const [editing, setEditing] = useState(location.hash === '#studio')
+  const [template, setTemplate] = useState<string>()
+  const [opening, setOpening] = useState<ProjectFile>()
+  const [saved, setSaved] = useState(readHomeState)
+  const { latest, options, notice, recovery } = saved
+  const file = useRef<HTMLInputElement>(null)
+  const setNotice = (message: string) => setSaved((previous) => ({ ...previous, notice: message }))
+
+  function start(id?: string, project?: ProjectFile) {
+    try {
+      if (id || project) preserveCurrentProject()
+    } catch {
+      setNotice(
+        'Your current room could not be backed up. Continue it and download a project file before starting another.',
+      )
+      return
+    }
+    setTemplate(id)
+    setOpening(project)
+    history.replaceState(null, '', '#studio')
+    setEditing(true)
+  }
+
+  function home() {
+    history.replaceState(null, '', location.pathname + location.search)
+    setSaved(readHomeState())
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <Suspense
+        fallback={
+          <div className="studio-loading" role="status">
+            <b>atrium</b>
+            <p>Opening your studio…</p>
+          </div>
+        }
       >
-        Shot
-      </button>
+        <Planner initialTemplate={template} initialProject={opening} onHome={home} />
+      </Suspense>
+    )
+  }
+
+  return (
+    <div className="project-home">
+      <header className="home-header">
+        <a className="atrium-wordmark" href={location.pathname} aria-label="Atrium home">
+          <span className="atrium-symbol" aria-hidden="true">
+            a
+          </span>
+          atrium
+        </a>
+        <nav aria-label="Home navigation">
+          <a href="#your-work">Your work</a>
+          <button type="button" onClick={() => file.current?.click()}>
+            Open a file
+          </button>
+          <ThemeToggle />
+        </nav>
+      </header>
+      <main className="home-content">
+        <section className="home-intro">
+          <div className="home-intro-copy">
+            <p className="home-purpose">Space planning for cafés, studios and small venues</p>
+            <h1>
+              Find a layout
+              <br />
+              worth building.
+            </h1>
+            <p className="home-lede">
+              Arrange the room. Walk through it. Compare the cost. Take a clear plan into your next
+              conversation.
+            </p>
+            <div className="home-actions">
+              <button className="product-primary" type="button" onClick={() => start('cafe')}>
+                Start with the café <span aria-hidden="true">↗</span>
+              </button>
+              {latest && (
+                <button type="button" onClick={() => start()}>
+                  Continue your project
+                </button>
+              )}
+            </div>
+            <p className="home-storage">Saved in this browser · Download your work anytime</p>
+          </div>
+          <figure className="home-art">
+            <img
+              src={cafeImage}
+              width="1320"
+              height="880"
+              alt="Architectural concept of a café with olive seating, timber walls and a red counter"
+              fetchPriority="high"
+            />
+            <figcaption>Café design study · Concept artwork</figcaption>
+          </figure>
+        </section>
+
+        <section className="home-work" id="your-work" aria-labelledby="work-heading">
+          <div className="section-heading">
+            <div>
+              <h2>Your work</h2>
+              <p>Pick up your room or explore another arrangement.</p>
+            </div>
+            <button type="button" onClick={() => start('empty')}>
+              New blank room <span aria-hidden="true">+</span>
+            </button>
+          </div>
+          {notice && (
+            <div className="product-notice" role="status">
+              {notice}
+              {recovery && (
+                <>
+                  <button type="button" onClick={() => downloadJson('atrium-recovery.json', recovery)}>
+                    Download recovery copy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        archiveInvalidStorage()
+                        downloadJson('atrium-recovery.json', recovery)
+                        setSaved(readHomeState())
+                        start('empty')
+                      } catch {
+                        setNotice(
+                          'Your recovery data could not be backed up. Download a copy before trying again.',
+                        )
+                      }
+                    }}
+                  >
+                    Back up and start again
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+          {latest || options.length ? (
+            <div className="recent-projects">
+              {latest && (
+                <button className="recent-project" type="button" onClick={() => start()}>
+                  <PlanPreview project={latest} />
+                  <span>
+                    <strong>{latest.name || 'Untitled room'}</strong>
+                    <em>Current project</em>
+                  </span>
+                  <span aria-hidden="true">↗</span>
+                </button>
+              )}
+              {options.slice(0, 5).map((option) => (
+                <button
+                  key={option.id}
+                  className="recent-project"
+                  type="button"
+                  onClick={() => start(undefined, option.project)}
+                >
+                  <PlanPreview project={option.project} />
+                  <span>
+                    <strong>{option.project.name || 'Untitled option'}</strong>
+                    <em>
+                      Saved{' '}
+                      {new Date(option.savedAt).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </em>
+                  </span>
+                  <span aria-hidden="true">↗</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="home-empty">
+              <p>Your projects will appear here.</p>
+              <p>
+                Start with a room below. Move a piece of furniture and see the plan, model and estimate change
+                together.
+              </p>
+            </div>
+          )}
+        </section>
+
+        <section className="home-start" aria-labelledby="start-heading">
+          <div className="section-heading">
+            <div>
+              <h2>Start with a space</h2>
+              <p>Real dimensions, editable furniture and a working budget.</p>
+            </div>
+          </div>
+          <div className="starter-grid">
+            {TEMPLATES.filter((t) => ['cafe', 'office', 'waiting', 'hotel'].includes(t.id)).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={`starter starter-${t.id}`}
+                onClick={() => start(t.id)}
+              >
+                <PlanPreview project={{ name: t.name, room: t.room, items: t.items() }} />
+                <div>
+                  <strong>{t.name}</strong>
+                  <span>
+                    {t.room.width.toFixed(1)} × {t.room.depth.toFixed(1)} m <span aria-hidden="true">↗</span>
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="home-how" aria-label="What you can do">
+          <div>
+            <h2>Work at room scale.</h2>
+            <p>
+              Draw walls, place furniture and change finishes. The floor plan and 3D model share the same
+              measurements.
+            </p>
+          </div>
+          <div>
+            <h2>Compare before committing.</h2>
+            <p>
+              Save different arrangements. Put seats, area and estimated cost side by side before picking a
+              direction.
+            </p>
+          </div>
+          <div>
+            <h2>Bring a clear proposal.</h2>
+            <p>
+              Export your project, download a furniture list or print a client board with the plan and
+              estimate.
+            </p>
+          </div>
+        </section>
+      </main>
+      <footer className="home-footer">
+        <span>atrium · Space planner</span>
+        <span>Works in your browser</span>
+        <a href="https://rishva.up.railway.app/">Rishva Iyer</a>
+      </footer>
+      <input
+        ref={file}
+        type="file"
+        accept=".json,application/json"
+        hidden
+        onChange={async (event) => {
+          const selected = event.currentTarget.files?.[0]
+          event.currentTarget.value = ''
+          if (!selected) return
+          try {
+            const project = readProjectFile(await selected.text())
+            if (!project) throw new Error('Invalid project')
+            start(undefined, project)
+          } catch {
+            setNotice('That file could not be opened. Choose an Atrium project file.')
+            document.getElementById('your-work')?.scrollIntoView()
+          }
+        }}
+      />
     </div>
   )
 }

@@ -9,9 +9,6 @@ export function readTheme(): Theme {
   } catch {
     /* private mode */
   }
-  if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    return 'dark'
-  }
   return 'light'
 }
 
@@ -20,7 +17,7 @@ export function applyTheme(theme: Theme) {
   root.dataset.theme = theme
   root.style.colorScheme = theme
   const meta = document.querySelector('meta[name="theme-color"]')
-  if (meta) meta.setAttribute('content', theme === 'dark' ? '#111113' : '#f4f4f2')
+  if (meta) meta.setAttribute('content', theme === 'dark' ? '#202820' : '#f7f6f2')
 }
 
 export function persistTheme(theme: Theme) {

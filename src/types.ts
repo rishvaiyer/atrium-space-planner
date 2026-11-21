@@ -48,6 +48,8 @@ export interface PlacedItem {
   x: number
   z: number
   rotation: number
+  unitPrice?: number
+  quoteReference?: string
   finish?: string
   w?: number
   d?: number
@@ -123,7 +125,7 @@ export interface Note {
 }
 
 export interface CostLine {
-  group: CostGroup | 'flooring'
+  group: CostGroup | 'flooring' | 'setup' | 'contingency'
   label: string
   amount: number
 }

@@ -15,9 +15,10 @@ const TOOLS: { id: Tool; label: string; key: string; hint: string; icon: 'select
   { id: 'note', label: 'Note', key: 'N', hint: 'Click the plan to add a note', icon: 'note' },
 ]
 
-export function OverlayTools({ compact = false }: { compact?: boolean }) {
+export function OverlayTools({ compact = false, modelOnly = false }: { compact?: boolean; modelOnly?: boolean }) {
   const tool = usePlanner((s) => s.tool)
-  const tools = compact ? TOOLS.filter((t) => t.id !== 'stamp') : TOOLS
+  const hasSelection = usePlanner(s => s.selectedIds.length > 0)
+  const tools = modelOnly ? TOOLS.filter(t => t.id === 'select') : compact ? TOOLS.filter((t) => t.id !== 'stamp') : TOOLS
 
   return (
     <div className="overlay-tools">
@@ -34,13 +35,13 @@ export function OverlayTools({ compact = false }: { compact?: boolean }) {
         </button>
       ))}
       <span className="sep" />
-      <button type="button" aria-label="Rotate selected" {...tip('Rotate selected 90°, or drag the blue handle on the plan for any angle. Shift snaps 15°.', 'R')} onClick={() => usePlanner.getState().rotateSelected(Math.PI / 2)}>
+      <button type="button" disabled={!hasSelection} aria-label="Rotate selected" {...tip('Rotate selected 90°, or drag the blue handle on the plan for any angle. Shift snaps 15°.', 'R')} onClick={() => usePlanner.getState().rotateSelected(Math.PI / 2)}>
         <Icon name="rotate" />
       </button>
-      <button type="button" aria-label="Duplicate selected" {...tip('Duplicate selected', '⌘D')} onClick={() => usePlanner.getState().duplicateSelected()}>
+      <button type="button" disabled={!hasSelection} aria-label="Duplicate selected" {...tip('Duplicate selected', '⌘D')} onClick={() => usePlanner.getState().duplicateSelected()}>
         <Icon name="copy" />
       </button>
-      <button type="button" className="danger" aria-label="Delete selected" {...tip('Delete selected', '⌫')} onClick={() => usePlanner.getState().deleteSelected()}>
+      <button type="button" className="danger" disabled={!hasSelection} aria-label="Delete selected" {...tip('Delete selected', '⌫')} onClick={() => usePlanner.getState().deleteSelected()}>
         <Icon name="trash" />
       </button>
     </div>

@@ -1,3 +1,4 @@
+import { analyzeLayout } from '../compliance'
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { ContactShadows, Environment, Lightformer, OrbitControls, Stars } from '@react-three/drei'
@@ -21,7 +22,7 @@ const CAMERA_SPACE = { position: [14, 8.2, 14] as [number, number, number], fov:
 const CAMERA_MOBILE = { ...CAMERA, fov: 46 }
 const WRAP: CSSProperties = { width: '100%', height: '100%' }
 const GL = {
-  antialias: false,
+  antialias: true,
   alpha: false,
   powerPreference: 'high-performance' as const,
   failIfMajorPerformanceCaveat: false,
@@ -30,7 +31,9 @@ const GL = {
 function canCreateWebGL(): boolean {
   try {
     const canvas = document.createElement('canvas')
-    return Boolean(canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+    return Boolean(
+      canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl'),
+    )
   } catch {
     return false
   }
@@ -50,6 +53,7 @@ export function Viewport3D() {
   const worldId = usePlanner((s) => s.worldId)
   const cameraMode = usePlanner((s) => s.cameraMode)
   const present = usePlanner((s) => s.focusMode)
+  const intro = usePlanner((s) => s.introSpin)
   const world = worldOf(worldId)
   const sun = useMemo(() => sunFromTime(time), [time])
   const mobile = useIsMobile()
@@ -59,11 +63,11 @@ export function Viewport3D() {
   )
   const fogArgs = useMemo(
     () =>
-      [worldId === 'earth' ? '#c5cdd4' : world.sky, world.id === 'earth' ? 24 : 22, world.id === 'earth' ? 48 : world.fogFar] as [
-        string,
-        number,
-        number,
-      ],
+      [
+        worldId === 'earth' ? '#e7e2da' : world.sky,
+        world.id === 'earth' ? 30 : 22,
+        world.id === 'earth' ? 48 : world.fogFar,
+      ] as [string, number, number],
     [world.sky, world.fogFar, world.id, worldId],
   )
   const [useIso, setUseIso] = useState(() => !canCreateWebGL())
@@ -111,12 +115,12 @@ export function Viewport3D() {
             glReady.current = true
             gl.toneMapping = THREE.ACESFilmicToneMapping
             gl.toneMappingExposure = 1.08
-            gl.setClearColor(worldId === 'earth' ? '#c5cdd4' : world.sky, 1)
+            gl.setClearColor(worldId === 'earth' ? '#e7e2da' : world.sky, 1)
           }}
         >
           <LowPower.Provider value={mobile}>
-            <color attach="background" args={[worldId === 'earth' ? '#c5cdd4' : world.sky]} />
-            <fog attach="fog" args={fogArgs} />
+            <color attach="background" args={[worldId === 'earth' ? '#e7e2da' : world.sky]} />
+            {worldId !== 'earth' && <fog attach="fog" args={fogArgs} />}
             <hemisphereLight args={hemiArgs} />
             <ambientLight intensity={mobile ? sun.ambient + 0.22 : sun.ambient} />
             <directionalLight
@@ -138,7 +142,9 @@ export function Viewport3D() {
                 <InteriorEnv warm={time >= 16 || time < 8} />
               </Suspense>
             )}
-            {worldId !== 'earth' && <Stars radius={60} depth={30} count={mobile ? 400 : 900} factor={3} fade speed={0} />}
+            {worldId !== 'earth' && (
+              <Stars radius={60} depth={30} count={mobile ? 400 : 900} factor={3} fade speed={0} />
+            )}
             {worldId !== 'earth' && <Planet world={world} />}
             <Scene
               items={items}
@@ -158,11 +164,12 @@ export function Viewport3D() {
               makeDefault
               enableDamping
               dampingFactor={0.08}
-              autoRotate={present && cameraMode === 'orbit'}
-              autoRotateSpeed={0.35}
+              autoRotate={(present || intro) && cameraMode === 'orbit'}
+              autoRotateSpeed={intro && !present ? 0.55 : 0.35}
+              onStart={() => intro && usePlanner.setState({ introSpin: false })}
               maxPolarAngle={cameraMode === 'eye' ? Math.PI / 2 - 0.02 : Math.PI / 2 - 0.04}
               minDistance={cameraMode === 'eye' ? 0.4 : 3}
-              maxDistance={worldId === 'earth' ? 28 : 48}
+              maxDistance={Math.max(80, Math.hypot(room.width, room.depth) * 12)}
             />
           </LowPower.Provider>
         </Canvas>
@@ -182,29 +189,73 @@ function Planet({ world }: { world: World }) {
 }
 
 function CameraRig({ mode, room }: { mode: CameraMode; room: Room }) {
-  const { camera, controls } = useThree()
+  const { camera, controls, size } = useThree()
+  const viewEpoch = usePlanner((state) => state.viewEpoch)
   useLayoutEffect(() => {
     const cx = room.originX + room.width / 2
     const cz = room.originZ + room.depth / 2
-    const ty = mode === 'eye' ? 1.5 : 0.4
+    const ty = mode === 'eye' ? 1.5 : room.wallHeight * 0.35
     if (mode === 'eye') {
       camera.position.set(room.originX + Math.min(1.5, room.width * 0.18), 1.55, cz)
     } else if (mode === 'top') {
-      camera.position.set(cx, Math.max(room.width, room.depth) * 1.15, cz + 0.05)
+      const verticalFov = THREE.MathUtils.degToRad(
+        camera instanceof THREE.PerspectiveCamera ? camera.fov : 38,
+      )
+      const aspect = Math.max(0.2, size.width / Math.max(1, size.height))
+      const height = (Math.max(room.width / aspect, room.depth) / (2 * Math.tan(verticalFov / 2))) * 1.12
+      camera.position.set(cx, height, cz + 0.05)
     } else {
-      camera.position.set(cx + 7, 7.2, cz + 7)
+      const verticalFov = THREE.MathUtils.degToRad(
+        camera instanceof THREE.PerspectiveCamera ? camera.fov : 38,
+      )
+      const aspect = Math.max(0.2, size.width / Math.max(1, size.height))
+      const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * aspect)
+      const radius = Math.hypot(room.width, room.depth, room.wallHeight) / 2
+      const distance = (radius / Math.sin(Math.min(verticalFov, horizontalFov) / 2)) * 1.08
+      const direction = new THREE.Vector3(0.82, 0.78, 0.98).normalize()
+      camera.position.set(cx, ty, cz).addScaledVector(direction, distance)
     }
     const orbit = controls as { target?: { set: (x: number, y: number, z: number) => void } } | null
     orbit?.target?.set(cx, ty, cz)
-  }, [mode, room.width, room.depth, room.originX, room.originZ, camera, controls])
+    camera.lookAt(cx, ty, cz)
+    if (camera instanceof THREE.PerspectiveCamera) {
+      camera.far = Math.max(
+        100,
+        camera.position.distanceTo(new THREE.Vector3(cx, ty, cz)) + Math.hypot(room.width, room.depth) * 3,
+      )
+      camera.updateProjectionMatrix()
+    }
+  }, [
+    mode,
+    room.width,
+    room.depth,
+    room.wallHeight,
+    room.originX,
+    room.originZ,
+    camera,
+    controls,
+    size.width,
+    size.height,
+    viewEpoch,
+  ])
   return null
 }
 
 function InteriorEnv({ warm }: { warm: boolean }) {
   return (
     <Environment resolution={256} environmentIntensity={0.55}>
-      <Lightformer intensity={warm ? 3.2 : 2.4} color={warm ? '#ffd7a8' : '#f4f7fb'} position={[0, 4.2, 0]} scale={[12, 1.2, 1]} />
-      <Lightformer intensity={1.8} color={warm ? '#ffb070' : '#d7e8ff'} position={[6, 2.4, -2]} scale={[4, 5, 1]} />
+      <Lightformer
+        intensity={warm ? 3.2 : 2.4}
+        color={warm ? '#ffd7a8' : '#f4f7fb'}
+        position={[0, 4.2, 0]}
+        scale={[12, 1.2, 1]}
+      />
+      <Lightformer
+        intensity={1.8}
+        color={warm ? '#ffb070' : '#d7e8ff'}
+        position={[6, 2.4, -2]}
+        scale={[4, 5, 1]}
+      />
       <Lightformer intensity={0.9} color="#c9d6e4" position={[-5, 1.6, 4]} scale={[5, 3, 1]} />
       <Lightformer intensity={0.45} color="#ffffff" position={[0, 0.4, 6]} scale={[10, 2, 1]} />
     </Environment>
@@ -291,16 +342,18 @@ function PresentHud() {
   const name = usePlanner((s) => s.projectName)
   const items = usePlanner((s) => s.items)
   const cap = usePlanner((s) => s.budgetCap)
-  const stats = useMemo(() => {
-    let seats = 0
-    let total = 0
-    for (const it of items) {
-      const def = catalogItem(it.catalogId)
-      seats += def.seats
-      total += def.price
-    }
-    return { seats, total }
-  }, [items])
+  const room = usePlanner((s) => s.room)
+  const tier = usePlanner((s) => s.budgetTier)
+  const floor = usePlanner((s) => s.floorFinish)
+  const jurisdiction = usePlanner((s) => s.jurisdiction)
+  const worldId = usePlanner((s) => s.worldId)
+  const occupancyGroup = usePlanner((s) => s.occupancyGroup)
+  const costSettings = usePlanner((s) => s.costSettings)
+  const stats = useMemo(
+    () =>
+      analyzeLayout({ room, items, tier, floor, cap, jurisdiction, worldId, occupancyGroup, costSettings }),
+    [room, items, tier, floor, cap, jurisdiction, worldId, occupancyGroup, costSettings],
+  )
   return (
     <div className="present-hud">
       <div>
@@ -414,7 +467,7 @@ function Scene({
             {sel && (
               <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                 <ringGeometry args={[0.28, 0.34, 32]} />
-                <meshBasicMaterial color="#3b82f6" />
+                <meshBasicMaterial color="#0202fc" />
               </mesh>
             )}
             {col && (
@@ -426,7 +479,9 @@ function Scene({
           </group>
         )
       })}
-      {pending && ghost && <GhostPreview catalogId={pending} x={ghost.x} z={ghost.z} items={items} room={room} />}
+      {pending && ghost && (
+        <GhostPreview catalogId={pending} x={ghost.x} z={ghost.z} items={items} room={room} />
+      )}
     </group>
   )
 }
@@ -472,7 +527,12 @@ function GhostPreview({
     <group position={[x, 0, z]}>
       <mesh position={[0, h / 2, 0]}>
         <boxGeometry args={[w, h, d]} />
-        <meshStandardMaterial color={collide ? '#dc2626' : '#3b82f6'} transparent opacity={0.28} depthWrite={false} />
+        <meshStandardMaterial
+          color={collide ? '#dc2626' : '#3b82f6'}
+          transparent
+          opacity={0.28}
+          depthWrite={false}
+        />
       </mesh>
       <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.22, 0.3, 24]} />
@@ -526,7 +586,13 @@ function IsoView({
               ? '#5c4a3e'
               : '#8d939c'
   const floorFill =
-    worldId === 'mars' ? '#8a4a32' : worldId === 'moon' ? '#8d9198' : worldId === 'titan' ? '#6a5a40' : earthFloor
+    worldId === 'mars'
+      ? '#8a4a32'
+      : worldId === 'moon'
+        ? '#8d9198'
+        : worldId === 'titan'
+          ? '#6a5a40'
+          : earthFloor
 
   const xs = floorPts.map((p) => p.x)
   const ys = floorPts.map((p) => p.y)

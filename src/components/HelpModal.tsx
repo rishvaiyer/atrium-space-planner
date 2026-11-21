@@ -34,7 +34,7 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
           <section>
             <h3>Textures</h3>
             <p>
-              Select any fixture, open <strong>Spec</strong>, and pick a photoreal PBR surface (oak, marble, brass,
+              Select any fixture, open <strong>Details</strong>, and pick a photoreal PBR surface (oak, marble, brass,
               velvet, leather, and the rest). Color, normal, and roughness maps wrap the real mesh. Floors and walls
               use the same library.
             </p>
@@ -51,7 +51,7 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
             <h3>Present the room</h3>
             <p>
               <strong>Present</strong> (or <strong>.</strong>) hides the library and spec, letterboxes the 3D view, and
-              slowly orbits. <strong>Shot</strong> downloads a PNG of the model. <strong>Eye</strong> is a walkthrough —
+              slowly orbits. <strong>Save image</strong> downloads a PNG of the model. <strong>Eye level</strong> is a walkthrough —
               <strong>WASD</strong> to walk, drag to look. Esc leaves present.
             </p>
           </section>
@@ -59,7 +59,7 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
             <h3>Files</h3>
             <p>
               <strong>New project</strong> opens templates. <strong>Open file</strong> loads an ATRIUM or AI design JSON.{' '}
-              <strong>Save project</strong> downloads the plan. <strong>Print board</strong> opens a printable sheet.{' '}
+              <strong>Save project</strong> downloads the plan. <strong>Client board</strong> opens a printable sheet.{' '}
               <strong>Export place</strong> writes sit-ready JSON for other apps. Work autosaves in this browser.
             </p>
           </section>

@@ -55,6 +55,8 @@ async function loadOptional(url: string, color: boolean, repeat: number) {
   }
 }
 
+const METALNESS = new Set(['black-metal', 'brass', 'brushed-steel', 'carbon', 'chrome', 'copper', 'gold', 'herringbone', 'lacquer', 'linen', 'rust'])
+
 export function loadPbr(id: string, repeat = 2): Promise<PbrSpec | null> {
   const key = `${id}:${repeat}`
   const hit = cache.get(key)
@@ -66,7 +68,7 @@ export function loadPbr(id: string, repeat = 2): Promise<PbrSpec | null> {
       const [normalMap, roughnessMap, metalnessMap] = await Promise.all([
         loadOptional(`${root}normal.jpg`, false, repeat),
         loadOptional(`${root}roughness.jpg`, false, repeat),
-        loadOptional(`${root}metalness.jpg`, false, repeat),
+        METALNESS.has(id) ? loadOptional(`${root}metalness.jpg`, false, repeat) : Promise.resolve(undefined),
       ])
       return {
         map,

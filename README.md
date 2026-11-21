@@ -2,9 +2,19 @@
 
 ![ATRIUM mark](src/assets/hero.png)
 
-ATRIUM is a browser-based planning workbench for cafés, offices, clinics, and retail fit-outs. Place a catalog fixture once and see the same room update in a CAD-style 2D plan and an interactive 3D view. The planner keeps a live capex rollup beside early egress and ADA-oriented checks so spatial decisions stay legible.
+ATRIUM is a browser-based planning workbench for cafés, offices, clinics, and retail fit-outs. Place a catalog fixture once and see the same room update in a CAD-style 2D plan and an interactive 3D view. The planner compares seating and purchase costs, with a grid-based route screen to help review the layout.
 
-**Live demo:** [rishvaiyer.github.io/atrium-space-planner](https://rishvaiyer.github.io/atrium-space-planner/)
+**Live demo:** [Open Atrium](https://norollbacks-demos.up.railway.app/atrium)
+
+## Current product
+
+The live app is [Atrium](https://norollbacks-demos.up.railway.app/atrium). This repository contains the source used for the current release. The Dockerfile runs lint, persistence checks, pricing and room-geometry checks, then builds the app.
+
+Start from the project home, choose a room and edit it in the studio. Save layout options to compare seats, area and estimated cost. The client board includes the plan, cost summary and furniture schedule. Projects and options stay in this browser, and project files can be downloaded and reopened. Previous rooms are backed up as options before a switch.
+
+Use the planning brief for room measurements in metres, decimal feet or inches, a budget, flooring prices, delivery and contingency. Furniture can use your own supplier prices and quote references. The estimate, presentation, furniture CSV and client board share those prices. Compare saved layouts by seats, total cost and cost per seat.
+
+The release includes responsive planning views, saved layout comparisons, portable project files, supplier-price overrides, a shared cost estimate and a printable client proposal. Pricing and room-geometry regressions are in `test/accuracy.test.ts`.
 
 ## Why this project
 
@@ -106,7 +116,7 @@ AI-readable JSON or a template
 - Colours are lifted from the photo and lightly saturated back up, since averaging a photo flattens colour toward grey. They are a close match, not a colour-managed one.
 - Background removal works from the image border, so a region of background fully enclosed by the subject (the bays of a bookcase, for example) stays part of the solid. The photo texture still shows the detail.
 - Image URLs only work when the host allows cross-origin reads. If it does not, save the image and upload it.
-- This repository does not yet include an automated test suite.
+- Focused autosave regression tests cover closing after an edit, retrying storage failures and canceling pending writes during reset. Browser journeys and visual checks are recorded in [the overhaul record](OVERHAUL.md).
 
 ## License
 

@@ -120,7 +120,12 @@ export function boxRoom(
   }
 }
 
-export function boundsFromWalls(walls: WallSeg[]): { originX: number; originZ: number; width: number; depth: number } {
+export function boundsFromWalls(walls: WallSeg[]): {
+  originX: number
+  originZ: number
+  width: number
+  depth: number
+} {
   if (!walls.length) return { originX: 0, originZ: 0, width: 8, depth: 6 }
   let minX = Infinity
   let minZ = Infinity
@@ -181,7 +186,10 @@ export function doorHinge(room: Room, door: Door): { x: number; z: number; angle
   return { x: p.x, z: p.z, angle }
 }
 
-export function doorCenter(room: Room, door: Door): { x: number; z: number; inwardX: number; inwardZ: number } | null {
+export function doorCenter(
+  room: Room,
+  door: Door,
+): { x: number; z: number; inwardX: number; inwardZ: number } | null {
   const wall = wallById(room, door.wallId)
   if (!wall) return null
   const d = wallDir(wall)
@@ -205,24 +213,53 @@ export function cloneRoom(room: Room): Room {
     walls: room.walls.map((w) => ({ ...w })),
     doors: room.doors.map((d) => ({ ...d })),
     windows: room.windows.map((w) => ({ ...w })),
-    spaces: (room.spaces ?? []).map((s) => ({ ...s, polygon: s.polygon.map((p) => ({ ...p })), wallIds: [...s.wallIds] })),
+    spaces: (room.spaces ?? []).map((s) => ({
+      ...s,
+      polygon: s.polygon.map((p) => ({ ...p })),
+      wallIds: [...s.wallIds],
+    })),
   }
 }
 
-export function reshapeBox(room: Room, width: number, depth: number): Room {
-  const ids = new Set(room.walls.map((w) => w.id))
-  if (ids.has('s') && ids.has('e') && ids.has('n') && ids.has('w')) {
-    const extras = room.walls.filter((w) => !['s', 'e', 'n', 'w'].includes(w.id))
-    return withBounds({
-      ...room,
-      width,
-      depth,
-      originX: 0,
-      originZ: 0,
-      walls: [...boxWalls(width, depth), ...extras],
-    })
+export function roomResizeIssue(room: Room, width: number, depth: number): string | null {
+  const scaleX = width / room.width
+  const scaleZ = depth / room.depth
+  for (const opening of [...room.doors, ...room.windows]) {
+    const wall = room.walls.find((part) => part.id === opening.wallId)
+    if (!wall) continue
+    const length = Math.hypot((wall.bx - wall.ax) * scaleX, (wall.bz - wall.az) * scaleZ)
+    if (opening.width > length + 0.000001) {
+      return 'A door or window would be wider than its wall. Increase the room size or adjust that opening first.'
+    }
   }
-  return room
+  return null
+}
+
+export function reshapeBox(room: Room, width: number, depth: number): Room {
+  if (roomResizeIssue(room, width, depth)) return room
+  const scaleX = width / room.width
+  const scaleZ = depth / room.depth
+  const walls = room.walls.map((wall) => ({
+    ...wall,
+    ax: room.originX + (wall.ax - room.originX) * scaleX,
+    bx: room.originX + (wall.bx - room.originX) * scaleX,
+    az: room.originZ + (wall.az - room.originZ) * scaleZ,
+    bz: room.originZ + (wall.bz - room.originZ) * scaleZ,
+  }))
+  const moveOpening = <T extends { wallId: string; offset: number; width: number }>(opening: T): T => {
+    const before = room.walls.find((wall) => wall.id === opening.wallId)
+    const after = walls.find((wall) => wall.id === opening.wallId)
+    if (!before || !after) return opening
+    const length = wallLen(after)
+    const center = ((opening.offset + opening.width / 2) / (wallLen(before) || 1)) * length
+    return { ...opening, offset: clamp(center - opening.width / 2, 0, Math.max(0, length - opening.width)) }
+  }
+  return withBounds({
+    ...room,
+    walls,
+    doors: room.doors.map(moveOpening),
+    windows: room.windows.map(moveOpening),
+  })
 }
 
 type LegacyDoor = Door & { wall?: string }
@@ -296,7 +333,13 @@ export function splitRoomAtPoint(room: Room, x: number, z: number, tol = 0.14): 
   return { ...room, walls, doors, windows }
 }
 
-export function insertWall(room: Room, ax: number, az: number, bx: number, bz: number): { room: Room; id: string } {
+export function insertWall(
+  room: Room,
+  ax: number,
+  az: number,
+  bx: number,
+  bz: number,
+): { room: Room; id: string } {
   let next = splitRoomAtPoint(room, ax, az)
   next = splitRoomAtPoint(next, bx, bz)
   const id = uid()

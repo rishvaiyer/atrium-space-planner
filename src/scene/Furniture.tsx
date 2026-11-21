@@ -1,4 +1,6 @@
-import { Suspense, useMemo, type ReactNode } from 'react'
+import { Suspense, useMemo, useRef, type ReactNode } from 'react'
+import { useFrame } from '@react-three/fiber'
+import type { Group } from 'three'
 import { catalogItem, getGlbUrl } from '../catalog'
 import { itemDims } from '../geometry'
 import { useLowPower } from '../lowPower'
@@ -619,7 +621,7 @@ export function RoomMesh({
           const dir = wallDir(wall)
           const angle = Math.atan2(dir.z, dir.x)
           return (
-            <group key={wall.id}>
+            <CutWall key={wall.id} room={room} wallId={wall.id}>
               {wallPieces(room, wall).map((p) => {
                 const mid = (p.s + p.e) / 2
                 const pos = pointOnWall(wall, mid)
@@ -648,7 +650,7 @@ export function RoomMesh({
                   </group>
                 )
               })}
-            </group>
+            </CutWall>
           )
         })}
       {showWalls &&
@@ -664,7 +666,8 @@ export function RoomMesh({
           const toCenterZ = oz + d / 2 - pos.z
           const inward = n.x * toCenterX + n.z * toCenterZ > 0 ? 1 : -1
           return (
-            <group key={win.id} position={[pos.x, win.sill + wh / 2, pos.z]} rotation={[0, -angle, 0]}>
+            <CutWall key={win.id} room={room} wallId={win.wallId} hide>
+            <group position={[pos.x, win.sill + wh / 2, pos.z]} rotation={[0, -angle, 0]}>
               <mesh>
                 <boxGeometry args={[win.width, wh, 0.03]} />
                 <meshStandardMaterial
@@ -683,6 +686,7 @@ export function RoomMesh({
                 <meshBasicMaterial color="#f0d9b0" />
               </mesh>
             </group>
+            </CutWall>
           )
         })}
       {showWalls &&
@@ -704,6 +708,38 @@ export function RoomMesh({
         })}
     </group>
   )
+}
+
+/**
+ * Dollhouse cutaway: a wall standing between the orbit camera and the room drops to
+ * waist height so the interior stays readable, then rises back as the camera moves on.
+ * At eye level (walkthrough) every wall stays full height.
+ */
+function CutWall({ room, wallId, hide = false, children }: { room: Room; wallId: string; hide?: boolean; children: ReactNode }) {
+  const ref = useRef<Group>(null)
+  const wall = room.walls.find((w) => w.id === wallId)
+  const geo = useMemo(() => {
+    if (!wall) return null
+    const dir = wallDir(wall)
+    const mid = pointOnWall(wall, dir.len / 2)
+    let nx = -dir.z
+    let nz = dir.x
+    const cx = room.originX + room.width / 2 - mid.x
+    const cz = room.originZ + room.depth / 2 - mid.z
+    if (nx * cx + nz * cz > 0) { nx = -nx; nz = -nz }
+    return { mx: mid.x, mz: mid.z, nx, nz }
+  }, [wall, room.originX, room.originZ, room.width, room.depth])
+  const low = Math.min(1, 1.05 / (room.wallHeight || 3))
+  useFrame(({ camera }) => {
+    const g = ref.current
+    if (!g || !geo) return
+    const outside = (camera.position.x - geo.mx) * geo.nx + (camera.position.z - geo.mz) * geo.nz > 0.4
+    const target = outside && camera.position.y > 2.2 ? low : 1
+    const k = g.scale.y + (target - g.scale.y) * 0.12
+    g.scale.y = k
+    if (hide) g.visible = k > 0.75
+  })
+  return <group ref={ref}>{children}</group>
 }
 
 function FloorMat({ kind }: { kind: FloorFinish }) {

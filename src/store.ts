@@ -1,3 +1,4 @@
+import { DEFAULT_COST_SETTINGS, type CostSettings } from './pricing'
 import { create } from 'zustand'
 import { catalogItem } from './catalog'
 import { layoutForWorld, ROOM } from './defaultLayout'
@@ -26,6 +27,7 @@ import {
   migrateRoom,
   nearestWall,
   reshapeBox,
+  roomResizeIssue,
   wallLen,
   withBounds,
 } from './walls'
@@ -72,6 +74,9 @@ export interface PlannerState {
   timeOfDay: number
   budgetTier: BudgetTier
   budgetCap: number
+  costSettings: CostSettings
+  setBudget: (cap: number) => void
+  setCostSettings: (patch: Partial<CostSettings>) => void
   jurisdiction: Jurisdiction
   worldId: WorldId
   isDragging3d: boolean
@@ -87,6 +92,7 @@ export interface PlannerState {
   showLibrary: boolean
   showSpec: boolean
   focusMode: boolean
+  introSpin: boolean
   cameraMode: CameraMode
   viewEpoch: number
   shotTick: number
@@ -137,11 +143,11 @@ export interface PlannerState {
   ) => void
   setProjectName: (projectName: string) => void
   setCameraMode: (cameraMode: CameraMode) => void
-  setRoom: (patch: Partial<Pick<Room, 'width' | 'depth' | 'wallHeight'>>) => void
+  setRoom: (patch: Partial<Pick<Room, 'width' | 'depth' | 'wallHeight'>>) => string | null
   loadTemplate: (id: string) => void
   toProject: () => ProjectFile
   exportProject: () => Promise<ProjectFile>
-  applyProject: (file: ProjectFile) => void
+  applyProject: (file: ProjectFile) => void | Promise<void>
   fitView: () => void
   nudgeSelected: (dx: number, dz: number, fine?: boolean) => void
   selectArch: (sel: ArchSel | null) => void
@@ -168,8 +174,8 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   snapOn: true,
   showWalls: true,
   showFurniture: true,
-  showElectrical: true,
-  showEgress: true,
+  showElectrical: false,
+  showEgress: false,
   showDimensions: true,
   showGrid: true,
   showLabels: false,
@@ -177,12 +183,13 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   showOpenings: true,
   showOccupancy: false,
   showLighting: true,
-  brandColor: '#3b82f6',
+  brandColor: '#637353',
   floorFinish: 'oak',
   wallFinish: 'plaster',
   timeOfDay: 18.5,
   budgetTier: 'standard',
   budgetCap: 18000,
+  costSettings: DEFAULT_COST_SETTINGS,
   jurisdiction: 'IBC',
   worldId: 'earth',
   isDragging3d: false,
@@ -198,6 +205,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   showLibrary: true,
   showSpec: true,
   focusMode: false,
+  introSpin: false,
   cameraMode: 'orbit',
   viewEpoch: 0,
   shotTick: 0,
@@ -227,7 +235,11 @@ export const usePlanner = create<PlannerState>((set, get) => ({
 
   setTool: (tool) =>
     set((state) =>
-      state.tool === tool && !state.pendingCatalogId && !state.measure.a && !state.measure.b && !state.wallStart
+      state.tool === tool &&
+      !state.pendingCatalogId &&
+      !state.measure.a &&
+      !state.measure.b &&
+      !state.wallStart
         ? state
         : { tool, pendingCatalogId: null, measure: { a: null, b: null }, wallStart: null },
     ),
@@ -266,14 +278,14 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   moveItems: (ids, x, z, asCenterOf) => {
     const { items, snapOn, snap } = get()
     const s = snapOn ? snap : 0
-    const target = asCenterOf ? items.find((it) => it.id === asCenterOf) : items.find((it) => ids.includes(it.id))
+    const target = asCenterOf
+      ? items.find((it) => it.id === asCenterOf)
+      : items.find((it) => ids.includes(it.id))
     if (!target) return
     const dx = snapTo(x, s) - target.x
     const dz = snapTo(z, s) - target.z
     set({
-      items: items.map((it) =>
-        ids.includes(it.id) ? { ...it, x: it.x + dx, z: it.z + dz } : it,
-      ),
+      items: items.map((it) => (ids.includes(it.id) ? { ...it, x: it.x + dx, z: it.z + dz } : it)),
     })
   },
 
@@ -288,9 +300,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
     if (!selectedIds.length) return
     commitHistory()
     set({
-      items: items.map((it) =>
-        selectedIds.includes(it.id) ? { ...it, rotation: it.rotation + delta } : it,
-      ),
+      items: items.map((it) => (selectedIds.includes(it.id) ? { ...it, rotation: it.rotation + delta } : it)),
     })
   },
 
@@ -318,11 +328,17 @@ export const usePlanner = create<PlannerState>((set, get) => ({
         return
       }
       if (selectedArch.kind === 'door') {
-        set({ room: { ...room, doors: room.doors.filter((d) => d.id !== selectedArch.id) }, selectedArch: null })
+        set({
+          room: { ...room, doors: room.doors.filter((d) => d.id !== selectedArch.id) },
+          selectedArch: null,
+        })
         return
       }
       if (selectedArch.kind === 'window') {
-        set({ room: { ...room, windows: room.windows.filter((w) => w.id !== selectedArch.id) }, selectedArch: null })
+        set({
+          room: { ...room, windows: room.windows.filter((w) => w.id !== selectedArch.id) },
+          selectedArch: null,
+        })
         return
       }
       set({ selectedArch: null })
@@ -404,8 +420,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
   },
   setTimeOfDay: (timeOfDay) => set((s) => (s.timeOfDay === timeOfDay ? s : { timeOfDay })),
   setBudgetTier: (budgetTier) => set((s) => (s.budgetTier === budgetTier ? s : { budgetTier })),
-  setJurisdiction: (jurisdiction) =>
-    set((s) => (s.jurisdiction === jurisdiction ? s : { jurisdiction })),
+  setJurisdiction: (jurisdiction) => set((s) => (s.jurisdiction === jurisdiction ? s : { jurisdiction })),
   setWorld: (worldId) => {
     const current = get()
     if (current.worldId === worldId) return
@@ -423,8 +438,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
       budgetCap: world.budgetCap,
     })
   },
-  setFlag: (key, value) =>
-    set((state) => (state[key] === value ? state : { [key]: value })),
+  setFlag: (key, value) => set((state) => (state[key] === value ? state : { [key]: value })),
 
   setMeasurePoint: (point) => {
     const { measure } = get()
@@ -478,18 +492,25 @@ export const usePlanner = create<PlannerState>((set, get) => ({
     get().loadTemplate(templateId)
   },
 
+  setBudget: (cap) => {
+    if (Number.isFinite(cap) && cap >= 0) set({ budgetCap: cap })
+  },
+  setCostSettings: (patch) => set((s) => ({ costSettings: { ...s.costSettings, ...patch } })),
   setProjectName: (projectName) => set((s) => (s.projectName === projectName ? s : { projectName })),
   setCameraMode: (cameraMode) => set((s) => (s.cameraMode === cameraMode ? s : { cameraMode })),
   fitView: () => set((s) => ({ viewEpoch: s.viewEpoch + 1 })),
   setRoom: (patch) => {
     const s = get()
-    const width = clamp(patch.width ?? s.room.width, 3, 28)
-    const depth = clamp(patch.depth ?? s.room.depth, 3, 22)
-    const wallHeight = clamp(patch.wallHeight ?? s.room.wallHeight, 2.2, 6)
-    if (width === s.room.width && depth === s.room.depth && wallHeight === s.room.wallHeight) return
+    const width = clamp(patch.width ?? s.room.width, 1, 28)
+    const depth = clamp(patch.depth ?? s.room.depth, 1, 22)
+    const wallHeight = clamp(patch.wallHeight ?? s.room.wallHeight, 1.8, 6)
+    if (width === s.room.width && depth === s.room.depth && wallHeight === s.room.wallHeight) return null
+    const issue = roomResizeIssue(s.room, width, depth)
+    if (issue) return issue
     s.commitHistory()
     const room = reshapeBox({ ...s.room, wallHeight }, width, depth)
     set({ room: { ...room, wallHeight }, viewEpoch: s.viewEpoch + 1 })
+    return null
   },
   nudgeSelected: (dx, dz, fine = false) => {
     const { selectedIds, items, snap, commitHistory } = get()
@@ -517,6 +538,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
       wallFinish: t.wall,
       timeOfDay: t.timeOfDay,
       budgetCap: t.budgetCap,
+      costSettings: DEFAULT_COST_SETTINGS,
       budgetTier: t.budgetTier,
       selectedIds: [],
       pendingCatalogId: null,
@@ -542,6 +564,7 @@ export const usePlanner = create<PlannerState>((set, get) => ({
       timeOfDay: s.timeOfDay,
       budgetTier: s.budgetTier,
       budgetCap: s.budgetCap,
+      costSettings: s.costSettings,
       jurisdiction: s.jurisdiction,
       category: s.category,
     }
@@ -552,34 +575,37 @@ export const usePlanner = create<PlannerState>((set, get) => ({
     return project
   },
   applyProject: (file) => {
-    get().commitHistory()
-    set((s) => ({
-      projectName: file.name,
-      templateId: file.templateId,
-      occupancyGroup: file.occupancyGroup,
-      room: migrateRoom(file.room),
-      items: file.items,
-      notes: file.notes ?? [],
-      brandColor: file.brandColor,
-      floorFinish: file.floorFinish,
-      wallFinish: file.wallFinish,
-      timeOfDay: file.timeOfDay,
-      budgetTier: file.budgetTier,
-      budgetCap: file.budgetCap,
-      jurisdiction: file.jurisdiction,
-      category: file.category,
-      selectedIds: [],
-      pendingCatalogId: null,
-      wallStart: null,
-      selectedArch: null,
-      worldId: 'earth',
-      viewEpoch: s.viewEpoch + 1,
-    }))
-    if (file.glbAssets?.length) {
-      void importPortableGlbs(file.glbAssets).then(() => {
-        set((s) => ({ viewEpoch: s.viewEpoch + 1 }))
-      })
+    const room = migrateRoom(file.room)
+    const apply = () => {
+      get().commitHistory()
+      set((s) => ({
+        projectName: file.name,
+        templateId: file.templateId,
+        occupancyGroup: file.occupancyGroup,
+        room,
+        items: file.items,
+        notes: file.notes ?? [],
+        brandColor: file.brandColor,
+        floorFinish: file.floorFinish,
+        wallFinish: file.wallFinish,
+        timeOfDay: file.timeOfDay,
+        budgetTier: file.budgetTier,
+        budgetCap: file.budgetCap,
+        costSettings: file.costSettings ?? DEFAULT_COST_SETTINGS,
+        jurisdiction: file.jurisdiction,
+        category: file.category,
+        selectedIds: [],
+        pendingCatalogId: null,
+        wallStart: null,
+        selectedArch: null,
+        worldId: 'earth',
+        viewEpoch: s.viewEpoch + 1,
+      }))
     }
+    if (file.glbAssets?.length) {
+      return importPortableGlbs(file.glbAssets).then(apply)
+    }
+    apply()
   },
   selectArch: (sel) => set({ selectedArch: sel, selectedIds: sel ? [] : get().selectedIds }),
   setWallStart: (pt) => set({ wallStart: pt }),

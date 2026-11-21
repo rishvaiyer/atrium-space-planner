@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
+    "lint": "oxlint src vite.config.ts",
+    "preview": "vite preview",
+    "test:accuracy": "tsx --test test/accuracy.test.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
@@ -24,6 +25,7 @@
     "@types/three": "^0.182.0",
     "@vitejs/plugin-react": "^6.0.4",
     "oxlint": "^1.75.0",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.2",
     "vite": "^8.2.0"
   }

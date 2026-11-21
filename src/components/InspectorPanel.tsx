@@ -6,11 +6,11 @@ import { applyObjectCode, objectCode } from '../objectCode'
 import { ITEM_TEXTURES, texturePreview, type TextureGroup } from '../textures'
 import { downloadJson } from '../project'
 import { usePlanner } from '../store'
-import type { BudgetTier, FloorFinish, Jurisdiction, PlacedItem, WallFinish } from '../types'
+import type { BudgetTier, FloorFinish, PlacedItem, WallFinish } from '../types'
 import { wallById, wallLen } from '../walls'
 import { tip } from './tipAttrs'
 
-const BRANDS = ['#3b82f6', '#111111', '#efeae2', '#c2410c', '#6b5344', '#0f766e']
+const BRANDS = ['#637353', '#663c34', '#efeae2', '#b97948', '#6b5344', '#293a2d']
 const FLOORS: FloorFinish[] = [
   'oak',
   'walnut',
@@ -25,7 +25,6 @@ const FLOORS: FloorFinish[] = [
 ]
 const WALLS: WallFinish[] = ['plaster', 'paint', 'brick', 'wood', 'concrete', 'tile']
 const TIERS: BudgetTier[] = ['budget', 'standard', 'premium']
-const CODES: Jurisdiction[] = ['IBC', 'NBC', 'Eurocode']
 
 export function InspectorPanel() {
   const items = usePlanner((s) => s.items)
@@ -37,6 +36,7 @@ export function InspectorPanel() {
   const time = usePlanner((s) => s.timeOfDay)
   const tier = usePlanner((s) => s.budgetTier)
   const cap = usePlanner((s) => s.budgetCap)
+  const costSettings = usePlanner((s) => s.costSettings)
   const jurisdiction = usePlanner((s) => s.jurisdiction)
   const worldId = usePlanner((s) => s.worldId)
 
@@ -47,11 +47,21 @@ export function InspectorPanel() {
 
   const analysis = useMemo(() => {
     try {
-      return analyzeLayout({ room, items, tier, floor, cap, jurisdiction, worldId, occupancyGroup })
+      return analyzeLayout({
+        room,
+        items,
+        tier,
+        floor,
+        cap,
+        jurisdiction,
+        worldId,
+        occupancyGroup,
+        costSettings,
+      })
     } catch {
       return null
     }
-  }, [room, items, tier, floor, cap, jurisdiction, worldId, occupancyGroup])
+  }, [room, items, tier, floor, cap, jurisdiction, worldId, occupancyGroup, costSettings])
 
   const hourLabel = `${Math.floor(time).toString().padStart(2, '0')}:${Math.round((time % 1) * 60)
     .toString()
@@ -62,7 +72,7 @@ export function InspectorPanel() {
   return (
     <aside className="panel inspector">
       <section className="estimate hero">
-        <div className="panel-kicker">Capex</div>
+        <div className="panel-kicker">Cost estimate</div>
         {analysis ? (
           <>
             <strong className="hero-num">{formatMoney(analysis.total)}</strong>
@@ -72,10 +82,25 @@ export function InspectorPanel() {
                 style={{ width: `${Math.min(100, (analysis.total / analysis.cap) * 100)}%` }}
               />
             </div>
-            <div className="cap-label">Cap {formatMoney(analysis.cap)}</div>
+            <label className="field">
+              Your total budget (USD)
+              <input
+                type="number"
+                min="0"
+                step="100"
+                value={cap}
+                onChange={(event) => usePlanner.getState().setBudget(Number(event.target.value))}
+              />
+            </label>
             <div className="pills">
               {TIERS.map((t) => (
-                <button key={t} type="button" className={tier === t ? 'on' : ''} {...tip(`${t} furniture pricing`)} onClick={() => usePlanner.getState().setBudgetTier(t)}>
+                <button
+                  key={t}
+                  type="button"
+                  className={tier === t ? 'on' : ''}
+                  {...tip(`${t} furniture pricing`)}
+                  onClick={() => usePlanner.getState().setBudgetTier(t)}
+                >
                   {t}
                 </button>
               ))}
@@ -95,29 +120,32 @@ export function InspectorPanel() {
       </section>
 
       <section>
-        <div className="panel-kicker">Envelope</div>
+        <div className="panel-kicker">Room size</div>
         <label className="field">
           Width · depth · height (m)
           <div className="dims">
             <input
+              aria-label="Room width (m)"
               type="number"
-              min={3}
+              min={1}
               max={28}
               step={0.1}
               value={Number(room.width.toFixed(2))}
               onChange={(e) => usePlanner.getState().setRoom({ width: Number(e.target.value) })}
             />
             <input
+              aria-label="Room depth (m)"
               type="number"
-              min={3}
+              min={1}
               max={22}
               step={0.1}
               value={Number(room.depth.toFixed(2))}
               onChange={(e) => usePlanner.getState().setRoom({ depth: Number(e.target.value) })}
             />
             <input
+              aria-label="Room height (m)"
               type="number"
-              min={2.2}
+              min={1.8}
               max={6}
               step={0.05}
               value={Number(room.wallHeight.toFixed(2))}
@@ -125,7 +153,10 @@ export function InspectorPanel() {
             />
           </div>
         </label>
-        <p className="hint">W draws a wall · D a door · G a window. Shift for an angled wall. Partition walls name rooms automatically.</p>
+        <p className="hint">
+          W draws a wall · D a door · G a window. Shift for an angled wall. Partition walls name rooms
+          automatically.
+        </p>
       </section>
 
       <section>
@@ -143,9 +174,7 @@ export function InspectorPanel() {
                     onFocus={() => usePlanner.getState().selectArch({ kind: 'space', id: sp.id })}
                     onChange={(e) => usePlanner.getState().renameSpace(sp.id, e.target.value)}
                   />
-                  <span>
-                    {report ? `${report.area.toFixed(1)} m² · ${report.seats} seats · load ${report.load}` : '—'}
-                  </span>
+                  <span>{report ? `${report.area.toFixed(1)} m² · ${report.seats} seats` : '—'}</span>
                 </li>
               )
             })}
@@ -202,7 +231,10 @@ export function InspectorPanel() {
                   <h3>{sp.name}</h3>
                   <label className="field">
                     Name
-                    <input value={sp.name} onChange={(e) => usePlanner.getState().renameSpace(sp.id, e.target.value)} />
+                    <input
+                      value={sp.name}
+                      onChange={(e) => usePlanner.getState().renameSpace(sp.id, e.target.value)}
+                    />
                   </label>
                   {report && (
                     <div className="kv">
@@ -211,7 +243,7 @@ export function InspectorPanel() {
                       <span>Seats</span>
                       <b>{report.seats}</b>
                       <span>Occupant load</span>
-                      <b>{report.load}</b>
+                      <b>Review local requirements</b>
                     </div>
                   )}
                 </>
@@ -250,7 +282,13 @@ export function InspectorPanel() {
           Floor
           <div className="pills">
             {FLOORS.map((f) => (
-              <button key={f} type="button" className={floor === f ? 'on' : ''} {...tip(`Floor finish: ${f}`)} onClick={() => usePlanner.getState().setFloorFinish(f)}>
+              <button
+                key={f}
+                type="button"
+                className={floor === f ? 'on' : ''}
+                {...tip(`Floor finish: ${f}`)}
+                onClick={() => usePlanner.getState().setFloorFinish(f)}
+              >
                 {f}
               </button>
             ))}
@@ -260,7 +298,13 @@ export function InspectorPanel() {
           Walls
           <div className="pills">
             {WALLS.map((w) => (
-              <button key={w} type="button" className={wall === w ? 'on' : ''} {...tip(`Wall finish: ${w}`)} onClick={() => usePlanner.getState().setWallFinish(w)}>
+              <button
+                key={w}
+                type="button"
+                className={wall === w ? 'on' : ''}
+                {...tip(`Wall finish: ${w}`)}
+                onClick={() => usePlanner.getState().setWallFinish(w)}
+              >
                 {w}
               </button>
             ))}
@@ -285,15 +329,17 @@ export function InspectorPanel() {
       </section>
 
       <section>
-        <div className="panel-kicker">Code</div>
+        <div className="panel-kicker">Layout screen</div>
         {analysis ? (
           <>
-            <div className={`code-pulse ${failed ? 'bad' : 'ok'}`}>{failed ? `${failed} issues` : 'Passing'}</div>
+            <div className={`code-pulse ${failed ? 'bad' : 'ok'}`}>
+              {failed ? `${failed} issues` : 'No flagged issues'}
+            </div>
             <div className="kv">
               <span>Occupancy</span>
               <b>{analysis.occupancyGroup}</b>
-              <span>Load</span>
-              <b>{analysis.occupantLoad}</b>
+              <span>Area</span>
+              <b>{analysis.area.toFixed(1)} m²</b>
               <span>Seats / m²</span>
               <b>
                 {analysis.seats} · {analysis.seatsPerM2.toFixed(2)}
@@ -302,26 +348,12 @@ export function InspectorPanel() {
                 <>
                   <span>Travel</span>
                   <b>
-                    {analysis.maxTravelM.toFixed(1)} / {analysis.travelLimitM} m
+                    {analysis.maxTravelM >= 90
+                      ? 'Route blocked'
+                      : `About ${analysis.maxTravelM.toFixed(1)} m`}
                   </b>
-                  <span>Aisle</span>
-                  <b>
-                    {analysis.aisleMinM.toFixed(2)} / {analysis.aisleRequiredM} m
-                  </b>
-                  <span>Code</span>
-                  <div className="pills tight">
-                    {CODES.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        className={jurisdiction === c ? 'on' : ''}
-                        {...tip(`Run checks against ${c}`)}
-                        onClick={() => usePlanner.getState().setJurisdiction(c)}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
+                  <span>Clearance screen</span>
+                  <b>{analysis.aisleOk ? 'Route found' : 'Review plan'}</b>
                 </>
               )}
             </div>
@@ -338,7 +370,7 @@ export function InspectorPanel() {
             </ul>
           </>
         ) : (
-          <p className="empty">Code checks unavailable.</p>
+          <p className="empty">Layout screen unavailable.</p>
         )}
       </section>
     </aside>
@@ -399,13 +431,77 @@ function ObjectEditor({ item, brand }: { item: PlacedItem; brand: string }) {
         </b>
       </div>
       <label className="field">
-        Size w · d · h (m)
+        Measured width · depth · height (m)
         <div className="dims">
-          <input type="number" min={0.05} max={8} step={0.05} value={Number(w.toFixed(2))} onChange={(e) => patch({ w: Number(e.target.value) })} />
-          <input type="number" min={0.05} max={8} step={0.05} value={Number(d.toFixed(2))} onChange={(e) => patch({ d: Number(e.target.value) })} />
-          <input type="number" min={0.05} max={6} step={0.05} value={Number(h.toFixed(2))} onChange={(e) => patch({ h: Number(e.target.value) })} />
+          <input
+            aria-label="Furniture width (m)"
+            type="number"
+            min={0.05}
+            max={8}
+            step={0.05}
+            value={Number(w.toFixed(2))}
+            onChange={(e) => patch({ w: Number(e.target.value) })}
+          />
+          <input
+            aria-label="Furniture depth (m)"
+            type="number"
+            min={0.05}
+            max={8}
+            step={0.05}
+            value={Number(d.toFixed(2))}
+            onChange={(e) => patch({ d: Number(e.target.value) })}
+          />
+          <input
+            aria-label="Furniture height (m)"
+            type="number"
+            min={0.05}
+            max={6}
+            step={0.05}
+            value={Number(h.toFixed(2))}
+            onChange={(e) => patch({ h: Number(e.target.value) })}
+          />
         </div>
       </label>
+      <label className="field">
+        Your unit price (USD)
+        <input
+          type="number"
+          min="0"
+          max="10000000"
+          step="0.01"
+          value={item.unitPrice ?? ''}
+          placeholder="Use catalog allowance"
+          onChange={(e) =>
+            patch({
+              unitPrice:
+                e.target.value === '' ? undefined : Math.min(10000000, Math.max(0, Number(e.target.value))),
+            })
+          }
+        />
+      </label>
+      <label className="field">
+        Quote reference
+        <input
+          maxLength={160}
+          value={item.quoteReference ?? ''}
+          placeholder="Supplier and quote number"
+          onChange={(e) => patch({ quoteReference: e.target.value || undefined })}
+        />
+      </label>
+      {item.unitPrice != null && (
+        <button
+          type="button"
+          className="file-btn wide"
+          onClick={() => {
+            const state = usePlanner.getState()
+            state.commitHistory()
+            for (const match of state.items.filter((other) => other.catalogId === item.catalogId))
+              state.updateItem(match.id, { unitPrice: item.unitPrice, quoteReference: item.quoteReference })
+          }}
+        >
+          Apply price to matching furniture
+        </button>
+      )}
       <label className="field">
         Color
         <div className="swatches">
@@ -430,9 +526,16 @@ function ObjectEditor({ item, brand }: { item: PlacedItem; brand: string }) {
       </label>
       <label className="field">
         Texture
-        <span className="field-hint">Photoreal PBR maps (color + normal + roughness) wrap this piece in 3D.</span>
+        <span className="field-hint">
+          Photoreal PBR maps (color + normal + roughness) wrap this piece in 3D.
+        </span>
         <div className="pills tight">
-          <button type="button" className={!item.texture ? 'on' : ''} {...tip('Clear the surface map')} onClick={() => patch({ texture: undefined })}>
+          <button
+            type="button"
+            className={!item.texture ? 'on' : ''}
+            {...tip('Clear the surface map')}
+            onClick={() => patch({ texture: undefined })}
+          >
             none
           </button>
         </div>
@@ -472,7 +575,10 @@ function ObjectEditor({ item, brand }: { item: PlacedItem; brand: string }) {
           Export object
         </button>
       </div>
-      <p className="hint">AIs can Open a design JSON, or paste object code here. Save / Place exports the whole room with these edits.</p>
+      <p className="hint">
+        AIs can Open a design JSON, or paste object code here. Save / Place exports the whole room with these
+        edits.
+      </p>
     </>
   )
 }

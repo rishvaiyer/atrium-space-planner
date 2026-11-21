@@ -1,3 +1,4 @@
+import { preserveCurrentProject } from '../layoutOptions'
 import { useEffect, useMemo, useState } from 'react'
 import { openBoard } from '../board'
 import { analyzeLayout } from '../compliance'
@@ -38,6 +39,7 @@ export function CommandPalette({ onClose, onOpenTemplates, onHelp }: { onClose: 
               jurisdiction: s.jurisdiction,
               worldId: s.worldId,
               occupancyGroup: s.occupancyGroup,
+              costSettings: s.costSettings,
             }),
           })
         },
@@ -46,7 +48,7 @@ export function CommandPalette({ onClose, onOpenTemplates, onHelp }: { onClose: 
       {
         id: 'ai-lounge',
         label: 'Load AI lounge example',
-        run: () => usePlanner.getState().applyProject(compileDesign(DESIGN_EXAMPLE)),
+        run: () => { preserveCurrentProject(usePlanner.getState().toProject()); return usePlanner.getState().applyProject(compileDesign(DESIGN_EXAMPLE)) },
       },
       {
         id: 'place',
@@ -70,7 +72,7 @@ export function CommandPalette({ onClose, onOpenTemplates, onHelp }: { onClose: 
       ...TEMPLATES.map((t) => ({
         id: `t-${t.id}`,
         label: `Template: ${t.name}`,
-        run: () => usePlanner.getState().loadTemplate(t.id),
+        run: () => { preserveCurrentProject(usePlanner.getState().toProject()); usePlanner.getState().loadTemplate(t.id) },
       })),
     ],
     [onOpenTemplates, onHelp],

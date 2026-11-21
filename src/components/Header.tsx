@@ -1,7 +1,7 @@
+import { furnitureCsv } from '../pricing'
 import { useEffect, useRef, useState } from 'react'
 import { openBoard } from '../board'
 import { catalogItem } from '../catalog'
-import { clearAllLocalData } from '../glbLibrary'
 import { analyzeLayout } from '../compliance'
 import { toPlaceExport } from '../placeExport'
 import { downloadJson, downloadText } from '../project'
@@ -12,51 +12,35 @@ import { tip } from './tipAttrs'
 
 export function Header({
   compact = false,
+  onHome,
+  onOptions,
+  onBrief,
   onTemplates,
   onPalette,
   onImport,
+  onSave,
+  onReset,
   onHelp,
 }: {
   compact?: boolean
+  onHome: () => void
+  onOptions: () => void
+  onBrief: () => void
   onTemplates: () => void
   onPalette: () => void
   onImport: () => void
+  onSave: () => void
+  onReset: () => void
   onHelp: () => void
 }) {
   const name = usePlanner((s) => s.projectName)
   const seats = usePlanner((s) => s.items.reduce((n, it) => n + catalogItem(it.catalogId).seats, 0))
   const room = usePlanner((s) => s.room)
-  const showLibrary = usePlanner((s) => s.showLibrary)
-  const showSpec = usePlanner((s) => s.showSpec)
   const focusMode = usePlanner((s) => s.focusMode)
 
-  /**
-   * Back to zero: the autosaved project, every imported and generated model,
-   * and the stored Polyfork token. Reloading afterwards is deliberate, so no
-   * revoked blob URL or registered catalog entry survives in memory.
-   */
-  const resetAll = () => {
-    if (!confirm('Clear the saved project and every imported or generated model from this browser, and start empty? This cannot be undone.')) return
-    clearAllLocalData()
-    location.reload()
-  }
-
-  const exportJson = () => {
-    void usePlanner.getState().exportProject().then((project) => {
-      downloadJson(`${project.name.replace(/\s+/g, '-').toLowerCase()}.atrium.json`, project)
-    })
-  }
-
   const exportCsv = () => {
-    const { items } = usePlanner.getState()
-    const rows = ['sku,name,qty,unit,total']
-    const counts = new Map<string, number>()
-    for (const it of items) counts.set(it.catalogId, (counts.get(it.catalogId) ?? 0) + 1)
-    for (const [id, qty] of counts) {
-      const def = catalogItem(id)
-      rows.push(`${def.sku},${def.name},${qty},${def.price},${def.price * qty}`)
-    }
-    downloadText('atrium-takeoff.csv', rows.join('\n'), 'text/csv')
+    const state = usePlanner.getState()
+    downloadText('atrium-furniture.csv', furnitureCsv(state.items, state.budgetTier), 'text/csv')
   }
 
   const printBoard = () => {
@@ -70,6 +54,7 @@ export function Header({
       jurisdiction: s.jurisdiction,
       worldId: s.worldId,
       occupancyGroup: s.occupancyGroup,
+      costSettings: s.costSettings,
     })
     openBoard({
       name: s.projectName,
@@ -91,9 +76,9 @@ export function Header({
   return (
     <header className={`header ${focusMode ? 'focus' : ''}`}>
       <div className="brand">
-        <span className="mark" {...tip('ATRIUM space planner')}>
-          A
-        </span>
+        <button type="button" className="mark home-mark" onClick={onHome} aria-label="Back to projects">
+          atrium <span aria-hidden="true">↖</span>
+        </button>
         <input
           className="proj-input"
           value={name}
@@ -108,66 +93,52 @@ export function Header({
         )}
       </div>
       <div className="header-actions">
-        <button type="button" {...tip('Start a new project from a room template', '⌘N')} onClick={onTemplates}>
+        <button
+          type="button"
+          {...tip('Start a new project from a room template', '⌘N')}
+          onClick={onTemplates}
+        >
           New project
         </button>
+        {!compact && (
+          <button type="button" onClick={onBrief}>
+            Planning brief
+          </button>
+        )}
+        <button type="button" className="options-button" onClick={onOptions}>
+          {compact ? 'Options' : 'Compare options'}
+        </button>
+        {!compact && (
+          <button type="button" className="client-board-button" onClick={printBoard}>
+            Client board ↗
+          </button>
+        )}
         {compact ? (
           <MoreMenu
             items={[
+              { label: 'Planning brief', run: onBrief },
+              { label: 'New project', run: onTemplates },
               { label: 'Open file', run: onImport },
-              { label: 'Save project', run: exportJson },
-              { label: 'Print board', run: printBoard },
+              { label: 'Save project', run: onSave },
+              { label: 'Client board', run: printBoard },
               { label: 'Export place JSON', run: exportPlace },
               { label: 'Present', run: () => usePlanner.getState().setFlag('focusMode', !focusMode) },
               { label: 'Redo', run: () => usePlanner.getState().redo() },
               { label: 'Help', run: onHelp },
-              { label: 'Reset all data', run: resetAll },
+              { label: 'Reset all data', run: onReset },
             ]}
           />
         ) : (
           <>
-            <button type="button" {...tip('Search commands and templates', '⌘K')} onClick={onPalette}>
-              Commands
-            </button>
-            <button type="button" {...tip('Open an ATRIUM or design JSON file', '⌘O')} onClick={onImport}>
-              Open file
-            </button>
-            <button type="button" {...tip('Download this project as JSON, including imported GLBs', '⌘S')} onClick={exportJson}>
-              Save project
-            </button>
-            <button type="button" {...tip('Download a cost takeoff spreadsheet')} onClick={exportCsv}>
-              Cost CSV
-            </button>
-            <button type="button" {...tip('Open a printable plan, cost, and code sheet')} onClick={printBoard}>
-              Print board
-            </button>
-            <button type="button" {...tip('Export sit-ready place JSON for other apps')} onClick={exportPlace}>
-              Export place
-            </button>
             <button
               type="button"
-              {...tip('Clear the saved project and every imported or generated model, and start empty')}
-              onClick={resetAll}
+              className="kbd-btn"
+              {...tip('Search commands and templates', '⌘K')}
+              onClick={onPalette}
             >
-              Reset
+              Search <kbd>⌘K</kbd>
             </button>
-            <span className="sep" />
-            <button
-              type="button"
-              className={showLibrary && !focusMode ? 'on' : ''}
-              {...tip('Show or hide the fixture library')}
-              onClick={() => usePlanner.getState().setFlag('showLibrary', !showLibrary)}
-            >
-              Library
-            </button>
-            <button
-              type="button"
-              className={showSpec && !focusMode ? 'on' : ''}
-              {...tip('Show or hide specs, capex, and textures')}
-              onClick={() => usePlanner.getState().setFlag('showSpec', !showSpec)}
-            >
-              Spec
-            </button>
+
             <button
               type="button"
               className={focusMode ? 'on' : ''}
@@ -176,17 +147,45 @@ export function Header({
             >
               Present
             </button>
+            <MoreMenu
+              items={[
+                { label: 'Open file', run: onImport },
+                { label: 'Save project', run: onSave },
+                { label: 'Furniture list (CSV)', run: exportCsv },
+                { label: 'Client board', run: printBoard },
+                { label: 'Export place JSON', run: exportPlace },
+                { label: 'Reset all data', run: onReset },
+              ]}
+            />
           </>
         )}
-        <button type="button" className="icon-btn" aria-label="Undo" {...tip('Undo last change', '⌘Z')} onClick={() => usePlanner.getState().undo()}>
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label="Undo"
+          {...tip('Undo last change', '⌘Z')}
+          onClick={() => usePlanner.getState().undo()}
+        >
           <Icon name="undo" />
         </button>
         {!compact && (
-          <button type="button" className="icon-btn" aria-label="Redo" {...tip('Redo', '⇧⌘Z')} onClick={() => usePlanner.getState().redo()}>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="Redo"
+            {...tip('Redo', '⇧⌘Z')}
+            onClick={() => usePlanner.getState().redo()}
+          >
             <Icon name="redo" />
           </button>
         )}
-        <button type="button" className="icon-btn" aria-label="Help" {...tip('How to plan a space', '?')} onClick={onHelp}>
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label="Help"
+          {...tip('How to plan a space', '?')}
+          onClick={onHelp}
+        >
           ?
         </button>
         <ThemeToggle />

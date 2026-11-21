@@ -3,7 +3,6 @@ import { CATALOG, worldUse } from '../catalog'
 import {
   addPolyforkAsset,
   clearGlbLibrary,
-  hydrateGlbLibrary,
   importGlbFiles,
   listGlb,
   removeGlb,
@@ -16,7 +15,7 @@ import type { Category } from '../types'
 import { tip } from './tipAttrs'
 
 const CATS: { id: Category; label: string }[] = [
-  { id: 'restaurant', label: 'F&B' },
+  { id: 'restaurant', label: 'Café' },
   { id: 'office', label: 'Office' },
   { id: 'retail', label: 'Retail' },
   { id: 'healthcare', label: 'Health' },
@@ -50,7 +49,7 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
   })
 
   useEffect(() => {
-    void hydrateGlbLibrary().then(setLibrary)
+    setLibrary(listGlb())
   }, [])
 
   const pick = (id: string) => {
@@ -99,7 +98,7 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
       <header className="panel-head">
         <div>
           <div className="panel-kicker">Library</div>
-          <h2>Fixtures</h2>
+          <h2>Furniture</h2>
         </div>
       </header>
       <div className="cats">
@@ -130,7 +129,7 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
               </button>
             ))}
           </div>
-          <p className="hint">{pending ? 'Tap the 2D plan or 3D floor to drop it' : 'Pick a piece, then tap the plan to place'}</p>
+          <p className="hint">{pending ? 'Tap the 2D plan or 3D floor to drop it' : 'Pick furniture, then tap the floor to place it'}</p>
           <label className="field">
             Search
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="sofa, booth, piano…" aria-label="Search fixtures" />
@@ -144,7 +143,7 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
                   {...tip(
                     pending === item.id
                       ? `Selected — tap the 2D plan or 3D floor to place ${item.name}`
-                      : `${item.name} · ${item.w.toFixed(2)} × ${item.d.toFixed(2)} × ${item.h.toFixed(2)} m — click, then tap the plan`,
+                      : `${item.name} · ${item.w.toFixed(2)} × ${item.d.toFixed(2)} × ${item.h.toFixed(2)} m — pick, then tap the floor`,
                   )}
                   onClick={() => pick(item.id)}
                 >
@@ -220,7 +219,7 @@ export function CatalogPanel({ onPick }: { onPick?: () => void }) {
                   <button
                     type="button"
                     className={`catalog-row ${pending === e.id ? 'on' : ''}`}
-                    {...tip(`${e.name} — click, then tap the plan to place`)}
+                    {...tip(`${e.name} — pick, then tap the floor to place`)}
                     onClick={() => pick(e.id)}
                   >
                     {e.thumb ? <img className="glyph-img" src={e.thumb} alt="" /> : <span className="glyph rect" />}

@@ -40,6 +40,7 @@ export function FloorPlan2D() {
   const floor = usePlanner((s) => s.floorFinish)
   const tier = usePlanner((s) => s.budgetTier)
   const cap = usePlanner((s) => s.budgetCap)
+  const costSettings = usePlanner(s => s.costSettings)
   const jurisdiction = usePlanner((s) => s.jurisdiction)
   const worldId = usePlanner((s) => s.worldId)
   const wallStart = usePlanner((s) => s.wallStart)
@@ -52,11 +53,11 @@ export function FloorPlan2D() {
 
   const analysis = useMemo(() => {
     try {
-      return analyzeLayout({ room, items, tier, floor, cap, jurisdiction, worldId, occupancyGroup })
+      return analyzeLayout({ room, items, tier, floor, cap, jurisdiction, worldId, occupancyGroup, costSettings })
     } catch {
       return null
     }
-  }, [room, items, tier, floor, cap, jurisdiction, worldId, occupancyGroup])
+  }, [room, items, tier, floor, cap, jurisdiction, worldId, occupancyGroup, costSettings])
 
   const collideIds = useMemo(() => collidingItemIds(items, room), [items, room])
   const selected = useMemo(() => new Set(selectedIds), [selectedIds])
@@ -90,10 +91,13 @@ export function FloorPlan2D() {
   const toWorld = (clientX: number, clientY: number, v = viewRef.current) => {
     const el = wrapRef.current
     if (!el) return { x: 0, z: 0 }
-    const r = el.getBoundingClientRect()
-    const sx = (clientX - r.left) / r.width
-    const sy = (clientY - r.top) / r.height
-    return { x: v.x + sx * v.w, z: v.y + sy * v.h }
+    const r = (el.querySelector('svg') ?? el).getBoundingClientRect()
+    // SVG preserves the room's proportions and centers any unused space.
+    const scale = Math.min(r.width / v.w, r.height / v.h)
+    if (!scale) return { x: v.x, z: v.y }
+    const insetX = (r.width - v.w * scale) / 2
+    const insetY = (r.height - v.h * scale) / 2
+    return { x: v.x + (clientX - r.left - insetX) / scale, z: v.y + (clientY - r.top - insetY) / scale }
   }
 
   const zoomAt = (clientX: number, clientY: number, factor: number, v = viewRef.current) => {
@@ -271,12 +275,10 @@ export function FloorPlan2D() {
       const my = (pts[0].y + pts[1].y) / 2
       const factor = pinch.current.dist / dist
       const zoomed = zoomAt(pinch.current.mx, pinch.current.my, factor, pinch.current.view)
-      const el = wrapRef.current
-      if (el) {
-        const r = el.getBoundingClientRect()
-        zoomed.x -= ((mx - pinch.current.mx) / r.width) * zoomed.w
-        zoomed.y -= ((my - pinch.current.my) / r.height) * zoomed.h
-      }
+      const beforePan = toWorld(pinch.current.mx, pinch.current.my, zoomed)
+      const afterPan = toWorld(mx, my, zoomed)
+      zoomed.x -= afterPan.x - beforePan.x
+      zoomed.y -= afterPan.z - beforePan.z
       viewRef.current = zoomed
       setView(zoomed)
       return
@@ -306,10 +308,10 @@ export function FloorPlan2D() {
     if (d.mode === 'pan') {
       const el = wrapRef.current
       if (!el) return
-      const r = el.getBoundingClientRect()
       const v = viewRef.current
-      const dx = ((e.clientX - d.lastX) / r.width) * v.w
-      const dy = ((e.clientY - d.lastZ) / r.height) * v.h
+      const previous = toWorld(d.lastX, d.lastZ, v)
+      const dx = p.x - previous.x
+      const dy = p.z - previous.z
       if (Math.hypot(e.clientX - d.lastX, e.clientY - d.lastZ) > 6) d.moved = true
       d.lastX = e.clientX
       d.lastZ = e.clientY

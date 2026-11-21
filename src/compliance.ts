@@ -1,7 +1,14 @@
+import {
+  DEFAULT_COST_SETTINGS,
+  furnitureSchedule,
+  moneyAmount,
+  unitPriceFor,
+  type CostSettings,
+} from './pricing'
 import { catalogItem } from './catalog'
 import { itemAabb } from './geometry'
 import { pointInPoly, polygonArea } from './spaces'
-import { doorCenter, wallLen, wallPieces, pointOnWall } from './walls'
+import { doorCenter, wallPieces, pointOnWall } from './walls'
 import type {
   BudgetTier,
   ComplianceCheck,
@@ -32,12 +39,6 @@ const FLOOR_RATE: Record<FloorFinish, Record<BudgetTier, number>> = {
   checker: { budget: 22, standard: 38, premium: 64 },
 }
 
-const TIER_MULT: Record<BudgetTier, number> = {
-  budget: 0.9,
-  standard: 1,
-  premium: 1.28,
-}
-
 interface Grid {
   cols: number
   rows: number
@@ -57,16 +58,31 @@ function buildGrid(room: Room, items: PlacedItem[], inflate: number): Grid {
     if (c >= 0 && r >= 0 && c < cols && r < rows) blocked[r * cols + c] = 1
   }
 
+  const wallRadius = room.wallThickness / 2 + inflate
   for (const wall of room.walls) {
-    const len = wallLen(wall)
-    const steps = Math.max(2, Math.ceil(len / (CELL * 0.5)))
-    const pieces = wallPieces(room, wall)
-    for (let i = 0; i <= steps; i++) {
-      const t = (i / steps) * len
-      const inDoor = !pieces.some((p) => t >= p.s - 0.02 && t <= p.e + 0.02)
-      if (inDoor) continue
-      const p = pointOnWall(wall, t)
-      mark(p.x, p.z)
+    for (const piece of wallPieces(room, wall)) {
+      const a = pointOnWall(wall, piece.s)
+      const b = pointOnWall(wall, piece.e)
+      const dx = b.x - a.x
+      const dz = b.z - a.z
+      const lengthSquared = dx * dx + dz * dz
+      if (!lengthSquared) continue
+      const minC = Math.max(0, Math.floor((Math.min(a.x, b.x) - wallRadius - ox) / CELL))
+      const maxC = Math.min(cols - 1, Math.ceil((Math.max(a.x, b.x) + wallRadius - ox) / CELL))
+      const minR = Math.max(0, Math.floor((Math.min(a.z, b.z) - wallRadius - oz) / CELL))
+      const maxR = Math.min(rows - 1, Math.ceil((Math.max(a.z, b.z) + wallRadius - oz) / CELL))
+      for (let c = minC; c <= maxC; c++) {
+        for (let r = minR; r <= maxR; r++) {
+          const x = ox + (c + 0.5) * CELL
+          const z = oz + (r + 0.5) * CELL
+          const length = Math.sqrt(lengthSquared)
+          const along = ((x - a.x) * dx + (z - a.z) * dz) / length
+          const across = Math.abs((x - a.x) * dz - (z - a.z) * dx) / length
+          const endDistance = Math.max(0, -along, along - length)
+          const sideDistance = Math.max(0, across - room.wallThickness / 2)
+          if (Math.hypot(endDistance, sideDistance) <= inflate) blocked[r * cols + c] = 1
+        }
+      }
     }
   }
 
@@ -102,26 +118,21 @@ function clampInt(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v))
 }
 
-function nearestWalkable(
-  grid: Grid,
-  x: number,
-  z: number,
-  originX: number,
-  originZ: number,
-): { c: number; r: number } | null {
-  const start = cellOf(x, z, grid, originX, originZ)
-  if (walkable(grid, start.c, start.r)) return start
-  for (let radius = 1; radius <= 8; radius++) {
-    for (let dc = -radius; dc <= radius; dc++) {
-      for (let dr = -radius; dr <= radius; dr++) {
-        if (Math.abs(dc) !== radius && Math.abs(dr) !== radius) continue
-        const c = start.c + dc
-        const r = start.r + dr
-        if (walkable(grid, c, r)) return { c, r }
-      }
-    }
-  }
-  return null
+function walkableAt(grid: Grid, x: number, z: number, room: Room) {
+  if (x < room.originX || z < room.originZ || x > room.originX + room.width || z > room.originZ + room.depth)
+    return null
+  const cell = cellOf(x, z, grid, room.originX, room.originZ)
+  return walkable(grid, cell.c, cell.r) ? cell : null
+}
+
+function isExteriorDoor(room: Room, wallId: string) {
+  const wall = room.walls.find((wall) => wall.id === wallId)
+  if (!wall) return false
+  const near = (a: number, b: number) => Math.abs(a - b) < 0.03
+  return (
+    [room.originX, room.originX + room.width].some((x) => near(wall.ax, x) && near(wall.bx, x)) ||
+    [room.originZ, room.originZ + room.depth].some((z) => near(wall.az, z) && near(wall.bz, z))
+  )
 }
 
 function astar(
@@ -140,7 +151,9 @@ function astar(
     for (const g of goals) {
       const gc = g % grid.cols
       const gr = Math.floor(g / grid.cols)
-      const d = Math.abs(c - gc) + Math.abs(r - gr)
+      const dx = Math.abs(c - gc)
+      const dz = Math.abs(r - gr)
+      const d = Math.max(dx, dz) + (Math.SQRT2 - 1) * Math.min(dx, dz)
       if (d < best) best = d
     }
     return best
@@ -151,10 +164,10 @@ function astar(
     [-1, 0, 1],
     [0, 1, 1],
     [0, -1, 1],
-    [1, 1, 1.414],
-    [1, -1, 1.414],
-    [-1, 1, 1.414],
-    [-1, -1, 1.414],
+    [1, 1, Math.SQRT2],
+    [1, -1, Math.SQRT2],
+    [-1, 1, Math.SQRT2],
+    [-1, -1, Math.SQRT2],
   ]
 
   while (open.length && steps < grid.cols * grid.rows * 2) {
@@ -208,15 +221,23 @@ function pathLength(path: { c: number; r: number }[]): number {
   return len
 }
 
-function doorGoalCells(room: Room, grid: Grid): Set<number> {
+function doorGoalCells(room: Room, grid: Grid, inflate = 0): Set<number> {
   const goals = new Set<number>()
   for (const door of room.doors) {
+    if (!isExteriorDoor(room, door.wallId) || door.width < 2 * inflate) continue
     const p = doorCenter(room, door)
     if (!p) continue
-    const inner = nearestWalkable(grid, p.x + p.inwardX * 0.4, p.z + p.inwardZ * 0.4, room.originX, room.originZ)
+    const offset = room.wallThickness / 2 + inflate + CELL
+    let approachClear = true
+    for (let step = 0.01; step <= offset + CELL / 2; step += CELL / 2) {
+      if (!walkableAt(grid, p.x + p.inwardX * step, p.z + p.inwardZ * step, room)) {
+        approachClear = false
+        break
+      }
+    }
+    if (!approachClear) continue
+    const inner = walkableAt(grid, p.x + p.inwardX * offset, p.z + p.inwardZ * offset, room)
     if (inner) goals.add(inner.r * grid.cols + inner.c)
-    const on = nearestWalkable(grid, p.x + p.inwardX * 0.15, p.z + p.inwardZ * 0.15, room.originX, room.originZ)
-    if (on) goals.add(on.r * grid.cols + on.c)
   }
   return goals
 }
@@ -242,11 +263,12 @@ export interface Analysis {
   maxTravelM: number
   travelLimitM: number
   aisleOk: boolean
-  aisleMinM: number
+  aisleMinM: number | null
   aisleRequiredM: number
   paths: EgressPath[]
   checks: ComplianceCheck[]
   lines: CostLine[]
+  schedule: ReturnType<typeof furnitureSchedule>
   total: number
   cap: number
   budgetOk: boolean
@@ -262,13 +284,17 @@ export function analyzeLayout(options: {
   jurisdiction: string
   worldId: WorldId
   occupancyGroup?: string
+  costSettings?: CostSettings
 }): Analysis {
   const { room, items, tier, floor, cap, jurisdiction, worldId } = options
   const world = worldOf(worldId)
   const occupancyGroup = options.occupancyGroup ?? world.occupancyGroup
   const spaceReports: SpaceReport[] = (room.spaces ?? []).map((sp) => {
     const a = Math.abs(polygonArea(sp.polygon))
-    const seatsHere = items.reduce((n, it) => (pointInPoly(sp.polygon, it.x, it.z) ? n + catalogItem(it.catalogId).seats : n), 0)
+    const seatsHere = items.reduce(
+      (n, it) => (pointInPoly(sp.polygon, it.x, it.z) ? n + catalogItem(it.catalogId).seats : n),
+      0,
+    )
     return {
       id: sp.id,
       name: sp.name,
@@ -281,17 +307,23 @@ export function analyzeLayout(options: {
     spaceReports.length > 0 ? spaceReports.reduce((s, sp) => s + sp.area, 0) : room.width * room.depth
   const seats = items.reduce((sum, item) => sum + catalogItem(item.catalogId).seats, 0)
   const occupantLoad =
-    spaceReports.length > 0 ? spaceReports.reduce((s, sp) => s + sp.load, 0) : Math.max(1, Math.ceil(area / OCCUPANT_M2))
+    spaceReports.length > 0
+      ? spaceReports.reduce((s, sp) => s + sp.load, 0)
+      : Math.max(1, Math.ceil(area / OCCUPANT_M2))
   const travelLimitM = TRAVEL_LIMIT[jurisdiction] ?? 18
 
-  const grid = buildGrid(room, items, 0)
-  const goals = doorGoalCells(room, grid)
   const paths: EgressPath[] = []
 
   for (const item of items) {
     const def = catalogItem(item.catalogId)
     if (!def.isSeat) continue
-    const start = nearestWalkable(grid, item.x, item.z, room.originX, room.originZ)
+    const grid = buildGrid(
+      room,
+      items.filter((other) => other.id !== item.id),
+      0,
+    )
+    const goals = doorGoalCells(room, grid)
+    const start = walkableAt(grid, item.x, item.z, room)
     if (!start || goals.size === 0) {
       paths.push({ fromId: item.id, points: [{ x: item.x, z: item.z }], length: 99 })
       continue
@@ -312,12 +344,16 @@ export function analyzeLayout(options: {
   }
 
   const maxTravelM = paths.reduce((m, p) => Math.max(m, p.length), 0)
-  const inflated = buildGrid(room, items, AISLE_REQUIRED / 2 - 0.08)
-  const inflatedGoals = doorGoalCells(room, inflated)
-  let aisleReachable = inflatedGoals.size > 0
+  let aisleReachable = room.doors.some((door) => isExteriorDoor(room, door.wallId))
   for (const item of items) {
     if (!catalogItem(item.catalogId).isSeat) continue
-    const start = nearestWalkable(inflated, item.x, item.z, room.originX, room.originZ)
+    const inflated = buildGrid(
+      room,
+      items.filter((other) => other.id !== item.id),
+      AISLE_REQUIRED / 2,
+    )
+    const inflatedGoals = doorGoalCells(room, inflated, AISLE_REQUIRED / 2)
+    const start = walkableAt(inflated, item.x, item.z, room)
     if (!start) {
       aisleReachable = false
       break
@@ -328,9 +364,9 @@ export function analyzeLayout(options: {
     }
   }
 
-  const aisleMinM = aisleReachable ? Math.max(AISLE_REQUIRED, 1.02) : 0.72
+  const aisleMinM = null
   const doorWidth = room.doors.length ? Math.min(...room.doors.map((d) => d.width)) : 0
-  const adaDoor = doorWidth >= 0.81
+  const adaDoor = doorWidth >= 0.815
 
   const groups: Record<string, number> = {
     seating: 0,
@@ -344,9 +380,11 @@ export function analyzeLayout(options: {
   }
   for (const item of items) {
     const def = catalogItem(item.catalogId)
-    groups[def.costGroup] += def.price * TIER_MULT[tier]
+    groups[def.costGroup] += unitPriceFor(item, tier)
   }
-  const flooring = area * (worldId === 'earth' ? FLOOR_RATE[floor][tier] : world.padUsdM2[tier])
+  const settings = options.costSettings ?? DEFAULT_COST_SETTINGS
+  const flooring =
+    area * (worldId === 'earth' ? (settings.floorRate ?? FLOOR_RATE[floor][tier]) : world.padUsdM2[tier])
   const allLines: CostLine[] = [
     { group: 'seating', label: 'Seating', amount: groups.seating },
     { group: 'tables', label: 'Tables', amount: groups.tables },
@@ -358,20 +396,35 @@ export function analyzeLayout(options: {
     { group: 'other', label: 'Fixtures', amount: groups.other },
     {
       group: 'flooring',
-      label: worldId === 'earth' ? `Floor — ${floor}` : `Pad / ISRU shell`,
+      label:
+        worldId === 'earth'
+          ? `Floor — ${floor}${settings.floorRate != null ? ' (your rate)' : ' allowance'}`
+          : `Pad / ISRU shell`,
       amount: flooring,
     },
   ]
   const lines = allLines.filter((line) => line.amount > 0 || line.group === 'flooring')
-  const total = lines.reduce((s, l) => s + l.amount, 0)
+  if (settings.setupAllowance > 0)
+    lines.push({
+      group: 'setup',
+      label: 'Delivery & installation allowance',
+      amount: settings.setupAllowance,
+    })
+  const subtotal = moneyAmount(lines.reduce((sum, line) => sum + line.amount, 0))
+  if (settings.contingencyPct > 0)
+    lines.push({
+      group: 'contingency',
+      label: `Contingency (${settings.contingencyPct}%)`,
+      amount: moneyAmount((subtotal * settings.contingencyPct) / 100),
+    })
+  const total = moneyAmount(lines.reduce((sum, line) => sum + line.amount, 0))
 
-  const travelOk = maxTravelM > 0 && maxTravelM <= travelLimitM && paths.every((p) => p.length < 90)
+  const travelOk = paths.length > 0 && paths.every((p) => p.length < 90)
   const budgetOk = total <= cap
   const count = (id: string) => items.filter((it) => it.catalogId === id).length
   const crew = Math.max(seats, 1)
   const o2Beds = count('greenhouse') * 3 + count('eclss') * 4 + count('isru') * 2
-  const powerKw =
-    count('solar-array') * 6 * world.solarFactor + count('rtg') * 8
+  const powerKw = count('solar-array') * 6 * world.solarFactor + count('rtg') * 8
   const powerNeed = crew * 2.1 + count('greenhouse') * 2.4
   const pressurized = count('hab-mod') * 2 + count('rad-shelter') * 4
   const hasAirlock = count('airlock') > 0
@@ -385,23 +438,24 @@ export function analyzeLayout(options: {
       ? [
           {
             id: 'egress',
-            label: 'Egress travel',
+            label: 'Routes to exterior doors',
             ok: travelOk,
             detail: travelOk
-              ? `${maxTravelM.toFixed(1)} / ${travelLimitM} m`
+              ? `Longest route about ${maxTravelM.toFixed(1)} m on a 20 cm grid`
               : maxTravelM >= 90
                 ? 'Path blocked'
-                : `${maxTravelM.toFixed(1)} / ${travelLimitM} m`,
+                : 'No route found',
           },
           {
             id: 'aisle',
-            label: 'ADA aisle / door',
+            label: 'Route clearance screen',
             ok: aisleReachable && adaDoor,
-            detail: aisleReachable && adaDoor
-              ? `${aisleMinM.toFixed(2)} m · door ${Math.round(doorWidth * 1000)} mm`
-              : !adaDoor
-                ? 'Door clear < 815 mm'
-                : 'Aisle under 915 mm',
+            detail:
+              aisleReachable && adaDoor
+                ? `Route found with ${AISLE_REQUIRED} m clearance setting; door opening ${Math.round(doorWidth * 1000)} mm`
+                : !adaDoor
+                  ? 'Modelled door opening is below the 815 mm setting'
+                  : 'No route found with the 915 mm clearance setting',
           },
           {
             id: 'budget',
@@ -464,14 +518,15 @@ export function analyzeLayout(options: {
     gravityG: world.gravityG,
     atmosphereKpa: world.atmosphereKpa,
     meanK: world.meanK,
-    maxTravelM: maxTravelM >= 90 ? 0 : maxTravelM,
+    maxTravelM,
     travelLimitM,
-    aisleOk: aisleReachable,
+    aisleOk: aisleReachable && adaDoor,
     aisleMinM,
     aisleRequiredM: AISLE_REQUIRED,
     paths,
     checks,
     lines,
+    schedule: furnitureSchedule(items, tier),
     total,
     cap,
     budgetOk,

@@ -4,6 +4,7 @@ import App from './App'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { applyTheme, readTheme } from './theme'
 import './index.css'
+import './product.css'
 
 applyTheme(readTheme())
 
